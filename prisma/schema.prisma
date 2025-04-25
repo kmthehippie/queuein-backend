@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @unique @default(uuid())
+  createdAt   DateTime     @default(now())
+  name        String?      @db.VarChar(255)
+  email       String       @unique
+  password    String?
+  hasPassword Boolean      @default(false)
+  outlets     Outlet[]
+  OAuthToken  OAuthToken[]
+}
+
+model OAuthToken {
+  id           Int     @id @default(autoincrement())
+  provider     String // "google" or "github"
+  accessToken  String
+  refreshToken String?
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, userId]) // Prevent multiple tokens per provider per user
+}
+
+model Outlet {
+  id     Int     @id @unique @default(autoincrement())
+  name   String? @db.VarChar(255)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String  @unique @db.VarChar(36)
+  queues Queue[]
+
+  @@index([userId])
+}
+
+model Queue {
+  id         Int         @id @unique @default(autoincrement())
+  outlet     Outlet      @relation(fields: [outletId], references: [id])
+  outletId   Int
+  queueItems QueueItem[]
+  startTime  DateTime    @default(now())
+  endTime    DateTime?
+  active     Boolean     @default(true)
+  name       String?
+  //We need to show active items and non active items. 
+  //If Queueitem is inactive, then the data moves to a different array.
+}
+
+model Customer {
+  id         String     @id @unique @default(uuid())
+  name       String?    @db.VarChar(255)
+  number     String?    @db.VarChar(25)
+  VIP        Boolean    @default(true)
+  //If VIP is false, then after every 7 days, we delete number in Customer file. 
+  //But the Customer with name exist and remains so that we can use it for metrics.
+  queueItems QueueItem? @relation("CustomerQueueItem")
+}
+
+model QueueItem {
+  id         Int       @id @default(autoincrement())
+  queue      Queue     @relation(fields: [queueId], references: [id])
+  queueId    Int
+  customerId String?   @unique
+  customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+  createdAt  DateTime  @default(now())
+  pax        Int
+  called     Boolean   @default(false)
+  seated     Boolean   @default(false)
+  quit       Boolean   @default(false)
+  active     Boolean   @default(true)
+  //! @@check([seated != quit], name: "seated_quit_check")
+  // Ensure seated and quit cannot both be true
+  //If called is true, but seated is not. Start a wait timer. 
+  //Once it hits 30 minutes, prompt the host if this user has been seated or to kick the user out of the queue.
+  //If kick user out of queue quit becomes true. If user selects to leave queue, quit is also true.
+  //If quit is true, seated cannot be true. If seated is true, quit cannot be true.
+  //If quit or seated is true, active becomes false.
+  //When seated is true, queue item becomes dormant (gray out) and leaves the actual queue.
+
+  @@index([queueId]) // For efficient querying of queue items within a queue
+}
