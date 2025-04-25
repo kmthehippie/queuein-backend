@@ -32,6 +32,7 @@ model OAuthToken {
   refreshToken String?
   userId       String
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pfp          String? @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
 
   @@unique([provider, userId]) // Prevent multiple tokens per provider per user
 }
@@ -40,13 +41,15 @@ model Outlet {
   id                 Int     @id @unique @default(autoincrement())
   name               String? @db.VarChar(255)
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String  @unique @db.VarChar(36)
+  userId             String  @unique
   queues             Queue[]
   location           String? @db.VarChar(255)
   googleMaps         String? @db.VarChar(255)
   wazeMaps           String? @db.VarChar(255)
   imgUrl             String? @db.VarChar(255) //Image stored in cloudinary
   defaultEstWaitTime Int?
+  phone              String? @db.VarChar(36)
+  hours              String?
 
   @@index([userId])
 }
