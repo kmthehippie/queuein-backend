@@ -7,16 +7,12 @@
     "dev": "nodemon app.js"
   },
   "repository": {
-    "type": "git",
-    "url": "git+https://github.com/kmthehippie/queuein-backend.git"
+    "type": "git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/kmthehippie/queuein-backend/issues"
-  },
-  "homepage": "https://github.com/kmthehippie/queuein-backend#readme",
+  "bugs": {},
   "dependencies": {
     "@prisma/client": "^6.6.0",
     "cloudinary": "^2.6.0",
