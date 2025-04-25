@@ -37,11 +37,16 @@ model OAuthToken {
 }
 
 model Outlet {
-  id     Int     @id @unique @default(autoincrement())
-  name   String? @db.VarChar(255)
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String  @unique @db.VarChar(36)
-  queues Queue[]
+  id                 Int     @id @unique @default(autoincrement())
+  name               String? @db.VarChar(255)
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String  @unique @db.VarChar(36)
+  queues             Queue[]
+  location           String? @db.VarChar(255)
+  googleMaps         String? @db.VarChar(255)
+  wazeMaps           String? @db.VarChar(255)
+  imgUrl             String? @db.VarChar(255) //Image stored in cloudinary
+  defaultEstWaitTime Int?
 
   @@index([userId])
 }
