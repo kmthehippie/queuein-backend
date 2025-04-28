@@ -14,15 +14,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id          String       @id @unique @default(uuid())
-  createdAt   DateTime     @default(now())
-  name        String?      @db.VarChar(255)
-  email       String       @unique
-  password    String?
-  hasPassword Boolean      @default(false)
-  outlets     Outlet[]
-  OAuthToken  OAuthToken[]
+model Account {
+  id           String       @id @unique @default(uuid())
+  createdAt    DateTime     @default(now())
+  companyName  String?      @db.VarChar(255)
+  companyEmail String       @unique
+  password     String?
+  hasPassword  Boolean      @default(false)
+  outlets      Outlet[]
+  OAuthToken   OAuthToken[]
+  staffs       Staff[]
+}
+
+model Staff {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(255)
+  role      Role     @default(HOST)
+  createdAt DateTime @default(now())
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+  email     String?  @unique @db.VarChar(255)
+
+  @@index([accountId])
+  @@index([name])
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  ASSISTANT_MANAGER
+  HOST
+  SERVER
+  CASHIER
+  BARISTA
+  // Add other relevant staff roles as needed
 }
 
 model OAuthToken {
@@ -30,18 +55,18 @@ model OAuthToken {
   provider     String // "google" or "github"
   accessToken  String
   refreshToken String?
-  userId       String
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   pfp          String? @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
 
-  @@unique([provider, userId]) // Prevent multiple tokens per provider per user
+  @@unique([provider, accountId]) // Prevent multiple tokens per provider per user
 }
 
 model Outlet {
   id                 Int     @id @unique @default(autoincrement())
   name               String? @db.VarChar(255)
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String  @unique
+  account            Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId          String  @unique
   queues             Queue[]
   location           String? @db.VarChar(255)
   googleMaps         String? @db.VarChar(255)
@@ -51,7 +76,7 @@ model Outlet {
   phone              String? @db.VarChar(36)
   hours              String?
 
-  @@index([userId])
+  @@index([accountId])
 }
 
 model Queue {
