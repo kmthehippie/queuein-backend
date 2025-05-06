@@ -22,18 +22,23 @@ model Account {
   password     String?
   hasPassword  Boolean      @default(false)
   outlets      Outlet[]
-  OAuthToken   OAuthToken[]
   staffs       Staff[]
+  logo         String?      @db.VarChar(255)
+  oAuthTokens  OAuthToken[]
 }
 
 model Staff {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique @db.VarChar(255)
-  role      Role     @default(HOST)
-  createdAt DateTime @default(now())
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId String
-  email     String?  @unique @db.VarChar(255)
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(255)
+  role       Role     @default(HOST)
+  createdAt  DateTime @default(now())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  String
+  email      String?  @unique @db.VarChar(255)
+  pfp        String?  @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
+  googleId   String?
+  facebookId String?
+  password   String?
 
   @@index([accountId])
   @@index([name])
@@ -51,15 +56,24 @@ enum Role {
 }
 
 model OAuthToken {
-  id           Int     @id @default(autoincrement())
-  provider     String // "google" or "github"
+  id           String    @id @default(uuid())
+  provider     Provider // "google" or "github"
   accessToken  String
   refreshToken String?
   accountId    String
-  account      Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  pfp          String? @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userAgent    String    @default("UNKNOWN") //This is what device: User-Agent: Mozilla/5.0 (<system-information>) <platform> (<platform-details>) <extensions>
+  deviceName   String?
+  lastLoggedIn DateTime?
 
-  @@unique([provider, accountId]) // Prevent multiple tokens per provider per user
+  @@unique([id, accountId]) // Prevent multiple tokens per provider per user
+}
+
+enum Provider {
+  LOCAL
+  GOOGLE
+  GITHUB
+  FACEBOOK
 }
 
 model Outlet {

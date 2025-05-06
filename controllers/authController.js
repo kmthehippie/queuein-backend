@@ -1,0 +1,348 @@
+const asyncHandler = require("express-async-handler");
+const { header, body, validationResult } = require("express-validator");
+const handleValidationResult = require("../middleware/validationResult");
+const passwordUtils = require("../config/passwordUtils");
+const jwt = require("../config/jwt");
+const { setAuthCookies } = require("../middleware/setAuthCookies");
+
+const {
+  getAccountEmail,
+  createAccount,
+  createStaff,
+  createOAuthToken,
+  updateOAuthToken,
+  findOAuthTokenByAccountIdAndUserAgent,
+  deleteAllOAuthToken,
+  deleteOAuthTokenByRefreshToken,
+  findOAuthTokenByOID,
+  deleteOAuthTokenByOID,
+} = require("../db/authQueries");
+
+// Helper function for sending server errors
+const sendServerError = (res, message) => {
+  return res.status(500).json({ message });
+};
+
+// Helper function for sending invalid credentials error
+const sendInvalidCredentialsError = (res) => {
+  return res.status(409).json({ message: "Invalid credentials" });
+};
+exports.normal_login = [
+  //Validate the header
+  header("User-Agent")
+    .notEmpty()
+    .withMessage("User-Agent header is required")
+    .isString()
+    .withMessage("User-Agent must be a string")
+    .isLength({ min: 5, max: 255 }) // Example length constraints
+    .withMessage("User-Agent must be between 5 and 255 characters")
+    .matches(/Mozilla\/\d+\.\d+/, "i"),
+  // Validate input
+  body("credentials.email", "Invalid credentials")
+    .trim()
+    .isEmail()
+    .normalizeEmail(),
+  body("credentials.password", "Invalid credentials")
+    .trim()
+    .isLength({ min: 6 })
+    .notEmpty(),
+  body("credentials.rememberDevice", "'Remember Device' is not a boolean")
+    .optional()
+    .isBoolean()
+    .toBoolean(),
+  handleValidationResult,
+  // asyncHandler(async (req, res, next) => {
+  //   const { email, password, rememberDevice } = req.body.credentials;
+  //   const userAgent = req.get("User-Agent");
+
+  //   console.log("Login attempted ", email, password, rememberDevice, userAgent);
+
+  //   const accountExist = await getAccountEmail(email);
+  //   if (!accountExist) {
+  //     return sendInvalidCredentialsError(res);
+  //   }
+
+  //   const validatePW = await passwordUtils.validatePw(
+  //     accountExist.password,
+  //     password
+  //   );
+
+  //   if (!validatePW) {
+  //     return sendInvalidCredentialsError(res);
+  //   }
+
+  //   const accessToken = jwt.generateAccessToken(accountExist);
+  //   const refreshToken = jwt.generateRefreshToken(accountExist);
+
+  //   //! ERROR IS HERE
+  //   if (rememberDevice) {
+  //     try {
+  //       //check if account has the cookie for oauthtoken
+  //       console.log(req.cookies);
+
+  //       //if it does NOT have the cookie for oid, then we check if existing oauthtokens exist.
+  //       //if existingOAuthTokens is less than accountExist.maxOAuthTokens, then we create a new oauth token.
+  //       //setauthcookies with new jwt refreshtoken and oid newOauthtoken.id
+
+  //       if (!req.cookies?.oid) {
+  //         const existingOAuthTokens = await findOAuthTokenByAccountId(
+  //           accountExist.id
+  //         );
+  //         if (existingOAuthTokens.count < accountExist.maxOAuthTokens) {
+  //           const newOAuthToken = await createOAuthToken({
+  //             provider: "LOCAL",
+  //             accessToken,
+  //             refreshToken,
+  //             accountId: accountExist.id,
+  //             userAgent: userAgent,
+  //           });
+  //           setAuthCookies(req, res, next, refreshToken, newOAuthToken.id); // Set cookies *after* token handling
+  //         } else {
+  //           return res
+  //             .status(403)
+  //             .json({ message: "Maximum number of devices reached" });
+  //         }
+  //       } else {
+  //         const oid = req.cookies.oid;
+  //         //if it does have the cookie for oid, then we go and find the existing oauthtoken by id.
+  //         const oldOAuthToken = await findOAuthTokenByOID(oid); //I think this line of code is not necessary.
+  //         if (oldOAuthToken.userAgent === userAgent) {
+  //           //update the refreshtoken and accesstoken for this oid
+  //           await updateOAuthToken({
+  //             id: oid,
+  //             accessToken: accessToken,
+  //             refreshToken: refreshToken,
+  //           });
+  //           setAuthCookies(req, res, next, refreshToken, oid);
+  //         } else {
+  //           //!prompt to revoke old auth token
+  //           // await deleteOAuthTokenByOID(oid);
+  //           // const newOAuthToken = await createOAuthToken({
+  //           //   provider: "LOCAL",
+  //           //   accessToken,
+  //           //   refreshToken,
+  //           //   accountId: accountExist.id,
+  //           //   userAgent: userAgent,
+  //           // });
+  //           // setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error handling OAuthToken:", error);
+  //       return res
+  //         .status(500)
+  //         .json({ message: "Database error during login." }); // Handle database errors
+  //     }
+  //   } else {
+  //     setAuthCookies(req, res, next, refreshToken);
+  //   }
+  asyncHandler(async (req, res, next) => {
+    const { email, password, rememberDevice } = req.body.credentials;
+    const userAgent = req.get("User-Agent");
+
+    const accountExist = await getAccountEmail(email);
+    console.log("Account exist? ", accountExist);
+    if (!accountExist) return sendInvalidCredentialsError(res);
+    if (!(await passwordUtils.validatePw(accountExist.password, password)))
+      return sendInvalidCredentialsError(res);
+
+    const accessToken = jwt.generateAccessToken(accountExist);
+    const refreshToken = jwt.generateRefreshToken(accountExist);
+
+    if (rememberDevice) {
+      try {
+        const existingOAuthToken = await findOAuthTokenByAccountIdAndUserAgent(
+          accountExist.id,
+          userAgent
+        );
+        console.log(
+          "Remember device and is there an existing oauth token?: ",
+          !!existingOAuthToken
+        );
+        if (existingOAuthToken) {
+          console.log(existingOAuthToken);
+          // Device already remembered, update tokens
+          await updateOAuthToken({
+            id: existingOAuthToken.id,
+            accessToken,
+            refreshToken,
+            lastLoggedIn: new Date(),
+          });
+          setAuthCookies(req, res, next, refreshToken, existingOAuthToken.id);
+        } else {
+          // New device, create a new token
+          console.log("Account exist in else? ", accountExist);
+
+          const newOAuthToken = await createOAuthToken({
+            provider: "LOCAL",
+            accessToken,
+            refreshToken,
+            accountId: accountExist.id,
+            userAgent,
+            lastLoggedIn: new Date(),
+          });
+          setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+        }
+      } catch (error) {
+        console.error("Error handling OAuthToken:", error);
+        return sendServerError(res, "Database error during login.");
+      }
+    } else {
+      setAuthCookies(req, res, next, refreshToken);
+    }
+    return res.status(201).json({
+      message: "Logged In Successfully.",
+      accountId: accountExist.id,
+      accessToken: accessToken,
+    });
+  }),
+];
+
+exports.normal_register_form_post = [
+  //Validate the header
+  header("User-Agent")
+    .notEmpty()
+    .withMessage("User-Agent header is required")
+    .isString()
+    .withMessage("User-Agent must be a string")
+    .isLength({ min: 5, max: 255 }) // Example length constraints
+    .withMessage("User-Agent must be between 5 and 255 characters")
+    .matches(/Mozilla\/\d+\.\d+/, "i"),
+  // Validate accountInfo
+  body("accountInfo.companyName", "Company name must be a string")
+    .trim()
+    .isString()
+    .escape(),
+  body("accountInfo.companyEmail", "Company email is not valid")
+    .trim()
+    .isEmail()
+    .normalizeEmail(),
+  body("accountInfo.password", "Password must be at least 6 characters long")
+    .isLength({ min: 6 })
+    .notEmpty()
+    .trim(),
+
+  // Validate ownerInfo
+  body("ownerInfo.name", "Owner name must be a string")
+    .trim()
+    .isString()
+    .escape(),
+  body("ownerInfo.email", "Owner email is not valid")
+    .trim()
+    .isEmail()
+    .normalizeEmail(),
+  body("ownerInfo.role", "Owner role must be a string")
+    .trim()
+    .isString()
+    .escape(),
+  body("ownerInfo.password", "Password must be at least 6 characters long")
+    .isLength({ min: 6 })
+    .notEmpty()
+    .trim(),
+
+  handleValidationResult,
+
+  asyncHandler(async (req, res, next) => {
+    const { accountInfo, ownerInfo } = req.body;
+    const userAgent = req.get("User-Agent");
+    const {
+      companyEmail,
+      password: accountPassword,
+      companyName,
+    } = accountInfo;
+    const {
+      name: ownerName,
+      email: ownerEmail,
+      password: ownerPassword,
+    } = ownerInfo;
+
+    const accountExist = await getAccountEmail(companyEmail);
+
+    if (accountExist) {
+      return res
+        .status(409)
+        .json({ message: "Email Account already exist in system" });
+    }
+
+    try {
+      const hashedPassword = await passwordUtils.generatePw(accountPassword);
+      const newAccount = await createAccount({
+        companyName,
+        companyEmail,
+        password: hashedPassword,
+        hasPassword: true,
+      });
+
+      if (!newAccount) {
+        return sendServerError(res, "Error creating new account");
+      }
+
+      const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
+      const newOwner = await createStaff({
+        name: ownerName,
+        role: "OWNER",
+        email: ownerEmail,
+        accountId: newAccount.id,
+        password: hashedOwnerPassword,
+      });
+
+      if (!newOwner) {
+        return sendServerError(res, "Error creating new owner");
+      }
+
+      const accessToken = jwt.generateAccessToken(newAccount);
+      const refreshToken = jwt.generateRefreshToken(newAccount);
+
+      const newOAuthToken = await createOAuthToken({
+        provider: "LOCAL",
+        accessToken,
+        refreshToken,
+        accountId: newAccount.id,
+        userAgent: userAgent,
+      });
+
+      if (!newOAuthToken) {
+        return sendServerError(res, "Error creating auth token");
+      }
+
+      setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+      return res.status(201).json({
+        message: "Account created successfully",
+        accountId: newAccount.id,
+        accessToken,
+        oid: newOAuthToken.id,
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      return sendServerError(
+        res,
+        "An unexpected error occurred during registration"
+      );
+    }
+  }),
+];
+
+exports.google_register_form_post = [
+  asyncHandler(async (req, res, next) => {
+    console.log("Google register form: ", req);
+  }),
+  //First get data from react (this would likely be the Google ID token or profile info)
+  //Validate the data from react
+  //Check if the email (from Google profile) has already been used to create an ACCOUNT
+  //If not, create an account with just the email.
+  //CreateOwnerGoogle to immediately create the staff (using Google profile info).
+  //Create OAuthToken for user to be logged in (linking Google credentials to the account).
+  //Respond to the client with a success and potentially a redirect URL to the google_success page.
+  //Handle the case where the Google email already exists.
+];
+
+exports.google_success_register_form_post = [
+  //Validate data from react (companyName, potentially password choice)
+  //Find the Account created during the initial Google registration (likely by email).
+  //Update the Account with the rest of the info from the success register form (companyName, logo, etc.).
+  //If the user chose to set a password, update the password and set hasPassword to true.
+  //Potentially update the Owner Staff record with more details if provided.
+  //Respond to the client with a success message and potentially a redirect to the dashboard.
+];
+
+exports.logout_post = [];
