@@ -50,7 +50,6 @@ const handle_refresh_token = asyncHandler(async (req, res, next) => {
       );
       console.log("oauthtoken's id and oid", OAuthToken.id, oid);
       console.log("is oauthtokenid === oid", OAuthToken.id === oid);
-      //! Oauthtoken id not equal oid. need to check why when it supposed to be
       if (oid) {
         if (OAuthToken.id !== oid) {
           console.warn("OID cookie does not match OAuthToken ID.");
@@ -58,11 +57,6 @@ const handle_refresh_token = asyncHandler(async (req, res, next) => {
           return res.status(401).json({ message: "Invalid session." });
         }
       }
-      // if (OAuthToken.id !== oid && oid) {
-      //   console.warn("OID cookie does not match OAuthToken ID.");
-      //   await deleteOAuthTokenByRefreshToken({ refreshToken: refreshToken });
-      //   return res.status(401).json({ message: "Invalid session." });
-      // }
 
       const account = OAuthToken.account;
       console.log("Account id in refresh controller: ", account);

@@ -17,7 +17,7 @@ datasource db {
 model Account {
   id           String       @id @unique @default(uuid())
   createdAt    DateTime     @default(now())
-  companyName  String?      @db.VarChar(255)
+  companyName  String?      @unique @db.VarChar(255)
   companyEmail String       @unique
   password     String?
   hasPassword  Boolean      @default(false)
@@ -25,6 +25,11 @@ model Account {
   staffs       Staff[]
   logo         String?      @db.VarChar(255)
   oAuthTokens  OAuthToken[]
+  queues       Queue[]
+  slug         String       @unique @db.VarChar(255)
+  customers    Customer[]
+
+  @@index([slug])
 }
 
 model Staff {
@@ -80,7 +85,7 @@ model Outlet {
   id                 Int     @id @unique @default(autoincrement())
   name               String? @db.VarChar(255)
   account            Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId          String  @unique
+  accountId          String
   queues             Queue[]
   location           String? @db.VarChar(255)
   googleMaps         String? @db.VarChar(255)
@@ -94,7 +99,7 @@ model Outlet {
 }
 
 model Queue {
-  id         Int         @id @unique @default(autoincrement())
+  id         String      @id @unique @default(uuid())
   outlet     Outlet      @relation(fields: [outletId], references: [id])
   outletId   Int
   queueItems QueueItem[]
@@ -102,25 +107,32 @@ model Queue {
   endTime    DateTime?
   active     Boolean     @default(true)
   name       String?
+  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  String
+
   //We need to show active items and non active items. 
   //If Queueitem is inactive, then the data moves to a different array.
+  @@index([outletId])
+  @@index([accountId])
 }
 
 model Customer {
-  id         String     @id @unique @default(uuid())
-  name       String?    @db.VarChar(255)
-  number     String?    @db.VarChar(25)
-  VIP        Boolean    @default(true)
+  id         String      @id @unique @default(uuid())
+  name       String?     @db.VarChar(255)
+  number     String?     @unique @db.VarChar(25)
+  VIP        Boolean     @default(true)
   //If VIP is false, then after every 7 days, we delete number in Customer file. 
   //But the Customer with name exist and remains so that we can use it for metrics.
-  queueItems QueueItem? @relation("CustomerQueueItem")
+  queueItems QueueItem[] @relation("CustomerQueueItem")
+  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  String
 }
 
 model QueueItem {
-  id         Int       @id @default(autoincrement())
+  id         String    @id @unique @default(uuid())
   queue      Queue     @relation(fields: [queueId], references: [id])
-  queueId    Int
-  customerId String?   @unique
+  queueId    String
+  customerId String?
   customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
   createdAt  DateTime  @default(now())
   pax        Int

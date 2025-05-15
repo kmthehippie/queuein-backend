@@ -4,6 +4,7 @@ const handleValidationResult = require("../middleware/validationResult");
 const passwordUtils = require("../config/passwordUtils");
 const jwt = require("../config/jwt");
 const { setAuthCookies } = require("../middleware/setAuthCookies");
+const slugify = require("../config/slugify");
 
 const {
   getAccountEmail,
@@ -16,6 +17,7 @@ const {
   deleteOAuthTokenByRefreshToken,
   findOAuthTokenByOID,
   deleteOAuthTokenByOID,
+  findExistingSlug,
 } = require("../db/authQueries");
 
 // Helper function for sending server errors
@@ -51,91 +53,7 @@ exports.normal_login = [
     .isBoolean()
     .toBoolean(),
   handleValidationResult,
-  // asyncHandler(async (req, res, next) => {
-  //   const { email, password, rememberDevice } = req.body.credentials;
-  //   const userAgent = req.get("User-Agent");
 
-  //   console.log("Login attempted ", email, password, rememberDevice, userAgent);
-
-  //   const accountExist = await getAccountEmail(email);
-  //   if (!accountExist) {
-  //     return sendInvalidCredentialsError(res);
-  //   }
-
-  //   const validatePW = await passwordUtils.validatePw(
-  //     accountExist.password,
-  //     password
-  //   );
-
-  //   if (!validatePW) {
-  //     return sendInvalidCredentialsError(res);
-  //   }
-
-  //   const accessToken = jwt.generateAccessToken(accountExist);
-  //   const refreshToken = jwt.generateRefreshToken(accountExist);
-
-  //   //! ERROR IS HERE
-  //   if (rememberDevice) {
-  //     try {
-  //       //check if account has the cookie for oauthtoken
-  //       console.log(req.cookies);
-
-  //       //if it does NOT have the cookie for oid, then we check if existing oauthtokens exist.
-  //       //if existingOAuthTokens is less than accountExist.maxOAuthTokens, then we create a new oauth token.
-  //       //setauthcookies with new jwt refreshtoken and oid newOauthtoken.id
-
-  //       if (!req.cookies?.oid) {
-  //         const existingOAuthTokens = await findOAuthTokenByAccountId(
-  //           accountExist.id
-  //         );
-  //         if (existingOAuthTokens.count < accountExist.maxOAuthTokens) {
-  //           const newOAuthToken = await createOAuthToken({
-  //             provider: "LOCAL",
-  //             accessToken,
-  //             refreshToken,
-  //             accountId: accountExist.id,
-  //             userAgent: userAgent,
-  //           });
-  //           setAuthCookies(req, res, next, refreshToken, newOAuthToken.id); // Set cookies *after* token handling
-  //         } else {
-  //           return res
-  //             .status(403)
-  //             .json({ message: "Maximum number of devices reached" });
-  //         }
-  //       } else {
-  //         const oid = req.cookies.oid;
-  //         //if it does have the cookie for oid, then we go and find the existing oauthtoken by id.
-  //         const oldOAuthToken = await findOAuthTokenByOID(oid); //I think this line of code is not necessary.
-  //         if (oldOAuthToken.userAgent === userAgent) {
-  //           //update the refreshtoken and accesstoken for this oid
-  //           await updateOAuthToken({
-  //             id: oid,
-  //             accessToken: accessToken,
-  //             refreshToken: refreshToken,
-  //           });
-  //           setAuthCookies(req, res, next, refreshToken, oid);
-  //         } else {
-  //           //!prompt to revoke old auth token
-  //           // await deleteOAuthTokenByOID(oid);
-  //           // const newOAuthToken = await createOAuthToken({
-  //           //   provider: "LOCAL",
-  //           //   accessToken,
-  //           //   refreshToken,
-  //           //   accountId: accountExist.id,
-  //           //   userAgent: userAgent,
-  //           // });
-  //           // setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error("Error handling OAuthToken:", error);
-  //       return res
-  //         .status(500)
-  //         .json({ message: "Database error during login." }); // Handle database errors
-  //     }
-  //   } else {
-  //     setAuthCookies(req, res, next, refreshToken);
-  //   }
   asyncHandler(async (req, res, next) => {
     const { email, password, rememberDevice } = req.body.credentials;
     const userAgent = req.get("User-Agent");
@@ -265,12 +183,26 @@ exports.normal_register_form_post = [
     }
 
     try {
+      let slug = slugify.slugify(companyName);
+      console.log("Slug :", slug);
+      let isSlugUnique = false;
+      let counter = 1;
+      while (!isSlugUnique) {
+        const existingAccountWithSlug = await findExistingSlug(slug);
+        if (!existingAccountWithSlug) {
+          isSlugUnique = true;
+        } else {
+          counter++;
+          slug = slugify(`${companyName}-${counter}`);
+        }
+      }
       const hashedPassword = await passwordUtils.generatePw(accountPassword);
       const newAccount = await createAccount({
         companyName,
         companyEmail,
         password: hashedPassword,
         hasPassword: true,
+        slug: slug,
       });
 
       if (!newAccount) {

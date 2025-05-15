@@ -2,16 +2,48 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 const refreshController = require("../controllers/refreshController");
+const customerController = require("../controllers/customerController");
 const passport = require("passport");
 const jwt = require("../config/jwt");
 const asyncHandler = require("express-async-handler");
-const { findAllOAuthToken } = require("../db/authQueries");
+const {
+  findAllOAuthToken,
+  createOutlet,
+  findOAuthTokenByOID,
+  findAccountByAccountId,
+  updateAccount,
+  createQueue,
+  createACustomer,
+  createAQueueItem,
+  findActiveQueueByOutletId,
+  findActiveQueuesByOutletAndAccountId,
+  findCustomerByAcctIdAndNumber,
+} = require("../db/authQueries");
 
-const { getAllStaff } = require("../db/authQueries");
+const prisma = require("../script");
 
 router.get("/", (req, res, next) => {
   res.send("Home");
 });
+router.get("/landingPage/:acctSlug", customerController.landing_page);
+router.get(
+  "/outletLandingPage/:acctSlug/:outletId",
+  customerController.outlet_landing_page
+);
+
+router.get(
+  "/customerForm/:acctSlug/:outletId/:queueId",
+  customerController.customer_form_get
+);
+router.post(
+  "/customerForm/:acctSlug/:outletId/:queueId",
+  customerController.customer_form_post
+);
+
+router.post(
+  "/customerQuit/:acctSlug/:queueId/:queueItemId",
+  customerController.customer_quit_queue_post
+);
 
 router.post("/login", authController.normal_login);
 router.post("/register", authController.normal_register_form_post);
@@ -24,13 +56,72 @@ router.post("/refresh", refreshController.handle_refresh_token);
 
 //This is testing for protected route
 router.post(
-  "/staff",
+  "/test",
   jwt.authAccessToken,
   asyncHandler(async (req, res, next) => {
-    const OAuthToken = await findAllOAuthToken();
+    const oid = req.cookies.oid;
+    const oAuthToken = await findOAuthTokenByOID(oid);
+    console.log("Found OAuthToken:", oAuthToken);
+
+    if (!oAuthToken) {
+      return res.status(400).json({ error: "Invalid or missing OAuthToken" });
+    }
+
+    const account = await findAccountByAccountId(oAuthToken.accountId);
+
+    if (!account) {
+      return res.status(400).json({ error: "Associated Account not found" });
+    }
+
+    // const data = { ...req.body, accountId: account.id };
+    // const createFakeOutlet = await createOutlet(data);
+
+    // const data = { ...req.body, accountId: account.id };
+    // const updateLogo = await updateAccount(data);
+    // console.log(updateLogo);
+
+    // const data = { ...req.body, accountId: account.id };
+    // const startFakeQueue = await createQueue(data);
+    // console.log("Started fake queue? ", startFakeQueue);
+    const existingCustomer = await findCustomerByAcctIdAndNumber({
+      accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
+      number: req.body.number,
+    });
+
+    if (existingCustomer) {
+      const dataForQueueItem = {
+        queueId: req.body.queueId,
+        customerId: existingCustomer.id,
+        pax: req.body.pax,
+      };
+      const newQueueItem = await createAQueueItem(dataForQueueItem);
+    } else {
+      const dataForCustomer = {
+        name: req.body.customerName,
+        number: req.body.number,
+        VIP: req.body.VIP,
+        accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
+      };
+      const newCustomer = await createACustomer(dataForCustomer);
+      const dataForQueueItem = {
+        queueId: req.body.queueId,
+        customerId: newCustomer.id,
+        pax: req.body.pax,
+      };
+      const newQueueItem = await createAQueueItem(dataForQueueItem);
+    }
+
+    // const dataFindQueueId = {
+    //   accountId: account.id,
+    //   outlet: 1,
+    // };
+    // const findQueueId = await findActiveQueuesByOutletAndAccountId(
+    //   dataFindQueueId
+    // );
+    // console.log(findQueueId);
+
     res.status(200).json({
-      message: "Sending response from /staff post",
-      OAuthToken,
+      message: "Sending response from /test post",
     });
   })
 );

@@ -6,6 +6,8 @@ const cors = require("cors");
 const passport = require("passport");
 const cookieParser = require("cookie-parser");
 const allowedOrigins = require("./config/allowedOrigins");
+const http = require("http");
+const setupSocket = require("./socket");
 
 app.use(express.static(path.join(__dirname, "/public")));
 
@@ -31,6 +33,13 @@ app.use(passport.initialize());
 require("./config/passportConfig");
 app.use("/", indexRouter);
 
-app.listen(process.env.PORT, () => {
+const server = http.createServer(app);
+setupSocket(server);
+server.listen(process.env.PORT, () => {
   console.log(`App is now listening on port ${process.env.PORT}`);
 });
+
+//* App.listen removed because server.listen is working instead
+// app.listen(process.env.PORT, () => {
+//   console.log(`App is now listening on port ${process.env.PORT}`);
+// });

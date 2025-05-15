@@ -15,27 +15,20 @@ exports.getAccountById = async (id) => {
   return accountIdExist;
 };
 
-exports.createAccount = async ({
-  companyName,
-  companyEmail,
-  password,
-  hasPassword,
-}) => {
+exports.createAccount = async (data) => {
   const account = await prisma.account.create({
     data: {
-      // Nest the fields within the 'data' object
-      companyName: companyName,
-      companyEmail: companyEmail,
-      password: password,
-      hasPassword: hasPassword, // Include hasPassword here
+      companyName: data.companyName,
+      companyEmail: data.companyEmail,
+      password: data.password,
+      hasPassword: data.hasPassword,
+      slug: data.slug,
     },
   });
   return account;
 };
 
 exports.createStaff = async ({ name, role, email, accountId }) => {
-  console.log("Inside query: ", name);
-
   const staff = await prisma.staff.create({
     data: {
       name,
@@ -115,7 +108,6 @@ exports.deleteAllOAuthToken = async () => {
 };
 
 exports.findOAuthTokenByRefreshToken = async (refreshToken) => {
-  console.log("Refreshtoken in prisma auth query: ", refreshToken);
   const token = await prisma.oAuthToken.findFirst({
     where: {
       refreshToken: refreshToken,
@@ -171,4 +163,292 @@ exports.deleteOAuthTokenByOID = async (oid) => {
     },
   });
   return deletedToken;
+};
+
+exports.createOutlet = async (data) => {
+  console.log("Creating new outlet ", data);
+  const newOutlet = await prisma.outlet.create({
+    data: {
+      name: data.name,
+      accountId: data.accountId,
+      location: data.location,
+      googleMaps: data.googleMaps,
+      wazeMaps: data.wazeMaps,
+      imgUrl: data.imgUrl,
+      defaultEstWaitTime: data.defaultEstWaitTime,
+      phone: data.phone,
+      hours: data.hours,
+    },
+  });
+  return newOutlet;
+};
+
+exports.findAccountByAccountId = async (data) => {
+  const account = await prisma.account.findUnique({
+    where: {
+      id: data,
+    },
+  });
+  return account;
+};
+
+exports.updateAccount = async (data) => {
+  const updateAcct = await prisma.account.update({
+    where: {
+      id: data.accountId,
+    },
+    data: {
+      companyName: data.companyName,
+      logo: data.logo,
+    },
+  });
+  return updateAcct;
+};
+
+exports.findAccountByName = async (data) => {
+  const account = await prisma.account.findUnique({
+    where: {
+      companyName: data,
+    },
+  });
+  return account;
+};
+
+exports.findOutletsByAcctId = async (data) => {
+  const outlets = await prisma.outlet.findMany({
+    where: {
+      accountId: data,
+    },
+  });
+  return outlets;
+};
+
+exports.createQueue = async (data) => {
+  const queue = await prisma.queue.create({
+    data: {
+      outletId: data.outletId,
+      name: data.name,
+      accountId: data.accountId,
+    },
+  });
+  return queue;
+};
+
+exports.findActiveQueuesByOutletAndAccountId = async (data) => {
+  const activeQueue = await prisma.queue.findMany({
+    where: {
+      accountId: data.accountId,
+      outletId: data.outletId,
+      active: true,
+    },
+  });
+  return activeQueue;
+};
+
+exports.findOutletByIdAndAccountId = async (data) => {
+  const outlet = await prisma.outlet.findFirst({
+    where: {
+      id: data.id,
+      accountId: data.accountId,
+    },
+  });
+  return outlet;
+};
+
+exports.findActiveQueueByOutletId = async (data) => {
+  const queue = await prisma.queue.findMany({
+    where: {
+      accountId: data.accountId,
+      outletId: data.outletId,
+    },
+  });
+  console.log("Queue exist? ", queue);
+  return queue;
+};
+
+exports.createACustomer = async (data) => {
+  const customer = await prisma.customer.create({
+    data: {
+      name: data.name,
+      number: data.number,
+      VIP: data.VIP,
+      accountId: data.accountId,
+    },
+  });
+  console.log("Creating a customer, ", customer);
+  return customer;
+};
+
+exports.createAQueueItem = async (data) => {
+  console.log("Trying to create queue item: ", data);
+  const queueItem = await prisma.queueItem.create({
+    data: {
+      queueId: data.queueId,
+      customerId: data.customerId,
+      pax: data.pax,
+    },
+  });
+  return queueItem;
+};
+
+exports.findExistingSlug = async (slug) => {
+  console.log("Finding exisitng slug :", slug);
+  const existingSlug = await prisma.account.findUnique({
+    where: { slug: slug },
+  });
+  return existingSlug;
+};
+
+exports.findAccountBySlug = async (slug) => {
+  console.log("Finding account by slug, ", slug);
+  const account = await prisma.account.findUnique({
+    where: { slug: slug },
+  });
+  console.log("Found account using slug: ", account);
+  return {
+    id: account.id,
+    companyName: account.companyName,
+    logo: account.logo,
+    slug: account.slug,
+  };
+};
+
+exports.findDuplicateCustomerByNumber = async (number) => {
+  console.log("Finding Dupe Customer by number, ", number);
+  const customer = await prisma.customer.findFirst({
+    where: {
+      number: number,
+    },
+  });
+  return customer;
+};
+
+exports.findQueueByQueueId = async (queueId) => {
+  console.log("Finding Queue by QueueID", queueId);
+  const queue = await prisma.queue.findUnique({
+    where: {
+      id: queueId,
+    },
+  });
+  return queue;
+};
+
+exports.findDuplicateCustomerInQueue = async (data) => {
+  console.log(
+    "Finding duplicate customers in queue ",
+    data.queueId,
+    data.customerId
+  );
+  const existing = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+      customerId: data.customerId,
+    },
+  });
+  return existing;
+};
+
+exports.findDupeActiveCustomerInQueueItem = async (data) => {
+  console.log("This is the data finding dupe active customer: ", data);
+  const queueItemAll = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+    },
+  });
+  console.log("This is all the queue Items with this q id", queueItemAll);
+  const qItem = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+      customerId: data.customerId,
+    },
+  });
+  console.log("Testing qitem ", qItem);
+  const queueItem = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+      customerId: data.customerId,
+      active: true,
+      quit: false,
+      seated: false,
+    },
+  });
+  console.log("Queue item with active being true ", queueItem);
+  return queueItem;
+};
+
+exports.findOutletByQueueId = async (queueId) => {
+  console.log("Finding outlet by queue id", queueId);
+  const queueOutlet = await prisma.queue.findFirst({
+    where: {
+      id: queueId,
+    },
+    include: {
+      outlet: true,
+    },
+  });
+  console.log("FOund queueoutlet: ", queueOutlet);
+  return queueOutlet;
+};
+
+exports.findQueueItemsLengthByQueueId = async (queueId) => {
+  console.log(queueId);
+  const queueItemsCount = await prisma.queueItem.count({
+    where: {
+      queueId: queueId,
+    },
+  });
+  console.log(queueId, " has ", queueItemsCount);
+  return queueItemsCount;
+};
+
+exports.findCustomerByAcctIdAndNumber = async (data) => {
+  const customer = await prisma.customer.findUnique({
+    where: {
+      accountId: data.accountId,
+      number: data.number,
+    },
+  });
+  return customer;
+};
+
+exports.findAllQueueItemsByQueueId = async (queueId) => {
+  const queue = await prisma.queue.findUnique({
+    where: { id: queueId },
+    include: {
+      queueItems: {
+        orderBy: { createdAt: "asc" },
+        include: { customer: true },
+      },
+    },
+  });
+  return queue;
+};
+exports.findQueueItemsByQueueId = async (data) => {
+  const queueItems = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+    },
+  });
+  return queueItems;
+};
+exports.findCustomerByCustomerID = async (customerId) => {
+  const cust = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      queueItems: true,
+    },
+  });
+  return cust;
+};
+
+exports.findQueueItemByQueueItemId = async (queueItemId) => {
+  const queueItem = await prisma.queueItem.findUnique({
+    where: {
+      id: queueItemId,
+    },
+    include: {
+      customer: true,
+    },
+  });
+  return queueItem;
 };
