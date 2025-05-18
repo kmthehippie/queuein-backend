@@ -234,6 +234,17 @@ exports.createQueue = async (data) => {
   return queue;
 };
 
+exports.findQueueByAccountId = async (data) => {
+  const queue = await prisma.queue.findMany({
+    where: {
+      accountId: data.accountId,
+    },
+  });
+
+  console.log("Found queues by account id");
+  return queue;
+};
+
 exports.findActiveQueuesByOutletAndAccountId = async (data) => {
   const activeQueue = await prisma.queue.findMany({
     where: {
@@ -286,6 +297,7 @@ exports.createAQueueItem = async (data) => {
       queueId: data.queueId,
       customerId: data.customerId,
       pax: data.pax,
+      position: data.position,
     },
   });
   return queueItem;
@@ -313,11 +325,12 @@ exports.findAccountBySlug = async (slug) => {
   };
 };
 
-exports.findDuplicateCustomerByNumber = async (number) => {
-  console.log("Finding Dupe Customer by number, ", number);
-  const customer = await prisma.customer.findFirst({
+exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
+  console.log("Find duplicate customer by number and account id", data);
+  const customer = await prisma.customer.findMany({
     where: {
-      number: number,
+      number: data.number,
+      accountId: data.accountId,
     },
   });
   return customer;
@@ -349,23 +362,8 @@ exports.findDuplicateCustomerInQueue = async (data) => {
 };
 
 exports.findDupeActiveCustomerInQueueItem = async (data) => {
-  console.log("This is the data finding dupe active customer: ", data);
-  const queueItemAll = await prisma.queueItem.findMany({
-    where: {
-      queueId: data.queueId,
-    },
-  });
-  console.log("This is all the queue Items with this q id", queueItemAll);
-  const qItem = await prisma.queueItem.findMany({
-    where: {
-      queueId: data.queueId,
-      customerId: data.customerId,
-    },
-  });
-  console.log("Testing qitem ", qItem);
   const queueItem = await prisma.queueItem.findMany({
     where: {
-      queueId: data.queueId,
       customerId: data.customerId,
       active: true,
       quit: false,
@@ -389,16 +387,18 @@ exports.findOutletByQueueId = async (queueId) => {
   console.log("FOund queueoutlet: ", queueOutlet);
   return queueOutlet;
 };
-
+//! USING THIS FN
 exports.findQueueItemsLengthByQueueId = async (queueId) => {
-  console.log(queueId);
   const queueItemsCount = await prisma.queueItem.count({
     where: {
       queueId: queueId,
     },
   });
   console.log(queueId, " has ", queueItemsCount);
-  return queueItemsCount;
+  if (queueItemsCount === null) {
+    return parseInt(0);
+  }
+  return parseInt(queueItemsCount);
 };
 
 exports.findCustomerByAcctIdAndNumber = async (data) => {
@@ -451,4 +451,34 @@ exports.findQueueItemByQueueItemId = async (queueItemId) => {
     },
   });
   return queueItem;
+};
+
+exports.updateQueueItemByQueueItemId = async (data) => {
+  const updatedQueueItem = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+    },
+    data: {
+      active: data.active,
+      quit: data.quit,
+    },
+  });
+  console.log("Previous queue item is being updated ", updatedQueueItem);
+  return updatedQueueItem;
+};
+
+exports.updatePaxByQueueItemId = async (data) => {
+  const updatedQueueItem = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+    },
+    data: {
+      pax: parseInt(data.pax),
+    },
+    include: {
+      customer: true,
+    },
+  });
+  console.log("Updated queueItem: ", updatedQueueItem);
+  return updatedQueueItem;
 };

@@ -7,20 +7,10 @@ const passport = require("passport");
 const jwt = require("../config/jwt");
 const asyncHandler = require("express-async-handler");
 const {
-  findAllOAuthToken,
-  createOutlet,
   findOAuthTokenByOID,
   findAccountByAccountId,
-  updateAccount,
   createQueue,
-  createACustomer,
-  createAQueueItem,
-  findActiveQueueByOutletId,
-  findActiveQueuesByOutletAndAccountId,
-  findCustomerByAcctIdAndNumber,
 } = require("../db/authQueries");
-
-const prisma = require("../script");
 
 router.get("/", (req, res, next) => {
   res.send("Home");
@@ -39,10 +29,19 @@ router.post(
   "/customerForm/:acctSlug/:outletId/:queueId",
   customerController.customer_form_post
 );
+router.post(
+  "/customerFormRepost/:acctSlug/:outletId/:queueId",
+  customerController.customer_form_repost
+);
 
 router.post(
   "/customerQuit/:acctSlug/:queueId/:queueItemId",
   customerController.customer_quit_queue_post
+);
+
+router.post(
+  "/customerUpdatePax/:acctSlug/:queueId/:queueItemId",
+  customerController.customer_update_pax_post
 );
 
 router.post("/login", authController.normal_login);
@@ -80,36 +79,37 @@ router.post(
     // const updateLogo = await updateAccount(data);
     // console.log(updateLogo);
 
-    // const data = { ...req.body, accountId: account.id };
-    // const startFakeQueue = await createQueue(data);
-    // console.log("Started fake queue? ", startFakeQueue);
-    const existingCustomer = await findCustomerByAcctIdAndNumber({
-      accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
-      number: req.body.number,
-    });
+    const data = { ...req.body, accountId: account.id };
+    const startFakeQueue = await createQueue(data);
+    console.log("Started fake queue? ", startFakeQueue);
 
-    if (existingCustomer) {
-      const dataForQueueItem = {
-        queueId: req.body.queueId,
-        customerId: existingCustomer.id,
-        pax: req.body.pax,
-      };
-      const newQueueItem = await createAQueueItem(dataForQueueItem);
-    } else {
-      const dataForCustomer = {
-        name: req.body.customerName,
-        number: req.body.number,
-        VIP: req.body.VIP,
-        accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
-      };
-      const newCustomer = await createACustomer(dataForCustomer);
-      const dataForQueueItem = {
-        queueId: req.body.queueId,
-        customerId: newCustomer.id,
-        pax: req.body.pax,
-      };
-      const newQueueItem = await createAQueueItem(dataForQueueItem);
-    }
+    // const existingCustomer = await findCustomerByAcctIdAndNumber({
+    //   accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
+    //   number: req.body.number,
+    // });
+
+    // if (existingCustomer) {
+    //   const dataForQueueItem = {
+    //     queueId: req.body.queueId,
+    //     customerId: existingCustomer.id,
+    //     pax: req.body.pax,
+    //   };
+    //   const newQueueItem = await createAQueueItem(dataForQueueItem);
+    // } else {
+    //   const dataForCustomer = {
+    //     name: req.body.customerName,
+    //     number: req.body.number,
+    //     VIP: req.body.VIP,
+    //     accountId: "bb1510ea-b77f-4cdb-b6b5-6c999fa657b8",
+    //   };
+    //   const newCustomer = await createACustomer(dataForCustomer);
+    //   const dataForQueueItem = {
+    //     queueId: req.body.queueId,
+    //     customerId: newCustomer.id,
+    //     pax: req.body.pax,
+    //   };
+    //   const newQueueItem = await createAQueueItem(dataForQueueItem);
+    // }
 
     // const dataFindQueueId = {
     //   accountId: account.id,

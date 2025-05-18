@@ -140,6 +140,7 @@ model QueueItem {
   seated     Boolean   @default(false)
   quit       Boolean   @default(false)
   active     Boolean   @default(true)
+  position   Int
   //! @@check([seated != quit], name: "seated_quit_check")
   // Ensure seated and quit cannot both be true
   //If called is true, but seated is not. Start a wait timer. 
@@ -150,4 +151,5 @@ model QueueItem {
   //When seated is true, queue item becomes dormant (gray out) and leaves the actual queue.
 
   @@index([queueId]) // For efficient querying of queue items within a queue
+  @@index([position])
 }

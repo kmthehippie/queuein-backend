@@ -41,12 +41,20 @@ const setupSocket = (server) => {
         queues[queueId] = [];
       }
       queues[queueId].push(socket.id);
-      sendQueueUpdate(io, queueId);
+    });
+    socket.on("set_customer_id", (customerId) => {
+      console.log(`Socket ${socket.id} setting customerId: ${customerId}`);
+      socket.customerId = customerId;
     });
 
     //Update queueId -- everyone in the room with this queueid
     socket.on("queue_update", (queueId) => {
       console.log("Update the queue info from here ", queueId);
+      sendQueueUpdate(io, queueId);
+    });
+
+    socket.on("leave_queue", async (queueId) => {
+      console.log("Trying to leave queue", queueId);
       sendQueueUpdate(io, queueId);
     });
 
@@ -60,6 +68,7 @@ const setupSocket = (server) => {
           `queue_${queueId}`,
           socket
         );
+
         if (processedData) {
           socket.emit("res_queue_refresh", processedData);
           console.log("Data being emitted", processedData);
@@ -103,10 +112,13 @@ const sendQueueUpdate = async (io, queueId) => {
     }
   } else {
     io.to(queueId).emit("queue_update", {
-      queueId,
-      queueLength: "N/A",
-      currentlyServing: "N/A",
       yourPosition: "N/A",
+      currentlyServing: "N/A",
+      queueList: {
+        type: "N/A",
+        partiesAhead: "N/A",
+        arr: null,
+      },
     });
   }
 };
@@ -114,149 +126,105 @@ const getProcessedQueueData = async (queueId, socket) => {
   try {
     const actualQueueId = queueId.slice(6);
     console.log("getProcessedQueueData queueid ", actualQueueId);
+
+    const customerId = socket?.customerId;
+
+    console.log("This is customer id? ", customerId);
+    //Find all queueItems position in an array.
     const queue = await findAllQueueItemsByQueueId(actualQueueId);
+    const queueItems = queue.queueItems;
 
-    if (queue && queue.queueItems) {
-      const queueItems = queue.queueItems;
-      console.log("Queue Items", queue.queueItems);
-      const currentlyServingItem = queueItems.find(
-        (item) => item.active && !item.quit && !item.seated
+    //Create a positions array
+    const queueItemsPos = queueItems
+      .filter((item) => item.active && !item.quit && !item.seated)
+      .map((item) => item.position);
+    console.log("Queue Items Position Arr: ", queueItemsPos);
+
+    //Find currently serving position
+    const currentlyServingPos = queueItemsPos[0];
+
+    if (customerId !== undefined) {
+      //Find customer's position
+      const customerQueueItem = queueItems.find(
+        (item) => item.id === customerId
       );
-      const currentlyServingPosition = currentlyServingItem
-        ? queueItems.findIndex((item) => item.id === currentlyServingItem.id) +
-          1
-        : "N/A";
+      console.log("This is the customer's queue item ", customerQueueItem);
+      const customerPosition = customerQueueItem.position;
+      const customerPax = customerQueueItem.pax;
 
-      const customerId = socket?.handshake?.query.queueItem;
-      const customerItem = queueItems.find((item) => item.id === customerId);
-      const customerPosition = customerItem
-        ? queueItems.findIndex((item) => item.id === customerId) + 1
-        : "N/A";
-
-      if (currentlyServingPosition === "N/A" || customerPosition === "N/A") {
-        return {
-          queueId,
-          queueLength: "N/A",
-          yourPosition: "N/A",
-          currentlyServing: "N/A",
-          queueList: [],
-          trailingDots: false,
-          moreThanFiveAhead: 0,
-        };
+      let queueItemsAheadOfCustomer = 0;
+      if (customerPosition !== undefined) {
+        queueItemsAheadOfCustomer = queueItemsPos.filter(
+          (pos) => pos < customerPosition
+        ).length;
       }
+      console.log(
+        "How many queueItems ahead of customer? ",
+        queueItemsAheadOfCustomer
+      );
 
-      const activeAheadCount = queueItems.filter(
-        (item) =>
-          item.active &&
-          !item.quit &&
-          !item.seated &&
-          queueItems.findIndex((q) => q.id === item.id) + 1 < customerPosition
-      ).length;
-
-      const queueList = [];
-      const maxVisibleItems = 8;
-      let trailingDots = false;
-
-      if (activeAheadCount > 5) {
-        return {
-          queueId,
-          queueLength: queueItems.filter(
-            (item) => item.active && !item.quit && !item.seated
-          ).length,
+      //If More than 5 ahead:
+      if (queueItemsAheadOfCustomer >= 5) {
+        //create data containing what we need to know in the front end
+        const toReturn = {
           yourPosition: customerPosition,
-          currentlyServing: currentlyServingPosition,
-          queueList: [
-            { type: "large-bar" },
-            { type: "you", position: customerPosition },
-          ],
-          trailingDots: false,
-          moreThanFiveAhead: activeAheadCount,
+          currentlyServing: currentlyServingPos,
+          pax: customerPax,
+          queueList: {
+            type: "large-bar",
+            partiesAhead: queueItemsAheadOfCustomer,
+            arr: null,
+          },
         };
+        return toReturn;
+      } else if (
+        queueItemsAheadOfCustomer < 5 &&
+        queueItemsAheadOfCustomer >= 1
+      ) {
+        const arrToSend = queueItemsPos.slice(0, 7);
+        const toReturn = {
+          yourPosition: customerPosition,
+          currentlyServing: currentlyServingPos,
+          pax: customerPax,
+          queueList: {
+            type: "short-bar",
+            partiesAhead: queueItemsAheadOfCustomer,
+            arr: arrToSend,
+          },
+        };
+        return toReturn;
       } else {
-        // Add currently serving
-        queueList.push({
-          position: currentlyServingPosition,
-          status: "serving",
-        });
-
-        // Add items ahead (up to 3)
-        for (
-          let i = currentlyServingPosition + 1;
-          i < customerPosition && queueList.length < 4;
-          i++
-        ) {
-          const itemAhead = queueItems.find(
-            (item) => queueItems.findIndex((q) => q.id === item.id) + 1 === i
-          );
-          if (
-            itemAhead &&
-            itemAhead.active &&
-            !itemAhead.quit &&
-            !itemAhead.seated
-          ) {
-            queueList.push({ position: i, status: "active" });
-          } else if (itemAhead) {
-            queueList.push({ position: i, status: "inactive" });
-          }
-        }
-
-        // Add customer
-        queueList.push({ position: customerPosition, status: "you" });
-
-        let behindCount = 0;
-        for (
-          let i = customerPosition + 1;
-          queueList.length < maxVisibleItems;
-          i++
-        ) {
-          const itemBehind = queueItems.find(
-            (item) => queueItems.findIndex((q) => q.id === item.id) + 1 === i
-          );
-          if (
-            itemBehind &&
-            itemBehind.active &&
-            !itemBehind.quit &&
-            !itemBehind.seated
-          ) {
-            queueList.push({ position: i, status: "active" });
-            behindCount++;
-          } else if (itemBehind) {
-            queueList.push({ position: i, status: "inactive" });
-          }
-        }
-        if (queueItems.length > customerPosition + behindCount) {
-          trailingDots = true;
-        }
-        console.log("Less than 5 ahead: ", {
-          queueLength: activeQueueLength,
+        const arrToSend = queueItemsPos.slice(0, 7);
+        const toReturn = {
           yourPosition: customerPosition,
-          currentlyServing: currentlyServingPosition,
-          queueList: queueList,
-          trailingDots: trailingDots, // Corrected trailingDots
-          moreThanFiveAhead: activeAheadCount,
-        });
-        return {
-          queueId,
-          queueLength: activeQueueLength,
-          yourPosition: customerPosition,
-          currentlyServing: currentlyServingPosition,
-          queueList: queueList,
-          trailingDots: trailingDots, // Corrected trailingDots
-          moreThanFiveAhead: activeAheadCount,
+          currentlyServing: customerPosition,
+          pax: customerPax,
+
+          queueList: {
+            type: "serving-you-bar",
+            arr: arrToSend,
+            partiesAhead: queueItemsAheadOfCustomer,
+          },
         };
+        return toReturn;
       }
     } else {
-      return {
-        queueId,
-        queueLength: "N/A",
+      const arrToSend = queueItemsPos.slice(0, 7);
+      const toReturn = {
         yourPosition: "N/A",
-        currentlyServing: "N/A",
-        queueList: [],
-        trailingDots: false,
-        moreThanFiveAhead: "N/A",
+        currentlyServing: currentlyServingPos,
+        pax: "N/A",
+        queueList: {
+          type: "long-bar",
+          partiesAhead: "N/A",
+          arr: arrToSend,
+        },
       };
+      return toReturn;
     }
   } catch (err) {
     console.error(err);
   }
 };
+
+const updatePax = async () => {};
