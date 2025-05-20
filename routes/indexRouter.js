@@ -3,6 +3,7 @@ const router = express.Router();
 const authController = require("../controllers/authController");
 const refreshController = require("../controllers/refreshController");
 const customerController = require("../controllers/customerController");
+const dbController = require("../controllers/dbController");
 const passport = require("passport");
 const jwt = require("../config/jwt");
 const asyncHandler = require("express-async-handler");
@@ -51,9 +52,11 @@ router.post("/register", authController.normal_register_form_post);
 router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
   res.send("Hey we got past the protected routes!");
 });
-
 router.post("/refresh", refreshController.handle_refresh_token);
 
+//DB ROUTES
+router.get("/sidenav/:accountId", dbController.sidenav_outlet_get);
+router.get("/allOutlets/:accountId", dbController.all_outlets_get);
 //This is testing for protected route
 router.post(
   "/test",
