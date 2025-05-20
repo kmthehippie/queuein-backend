@@ -21,6 +21,7 @@ router.get(
   customerController.outlet_landing_page
 );
 
+//* CUSTOMER ROUTES *//
 router.get(
   "/customerForm/:acctSlug/:outletId/:queueId",
   customerController.customer_form_get
@@ -44,9 +45,9 @@ router.post(
   customerController.customer_update_pax_post
 );
 
+//* ACCOUNT ROUTES *//
 router.post("/login", authController.normal_login);
 router.post("/register", authController.normal_register_form_post);
-
 router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
   res.send("Hey we got past the protected routes!");
 });

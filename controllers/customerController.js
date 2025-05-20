@@ -436,11 +436,10 @@ exports.customer_quit_queue_post = [
   asyncHandler(async (req, res, next) => {
     console.log(req.params);
     const params = req.params;
-    //TODO: FIND THE QUEUEITEM USING THE QUEUEITEM ID
+
     const queueItem = await findQueueItemByQueueItemId(params.queueItemId);
     console.log("Customer trying to leave queue", queueItem);
-    //TODO: SET queueItem.active to FALSE
-    //TODO: SET queueItem.quit to TRUE
+
     const data = {
       queueItemId: params.queueItemId,
       active: false,
