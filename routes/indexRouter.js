@@ -54,9 +54,15 @@ router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
 });
 router.post("/refresh", refreshController.handle_refresh_token);
 
-//DB ROUTES
+//* DASHBOARD ROUTES *//
 router.get("/sidenav/:accountId", dbController.sidenav_outlet_get);
 router.get("/allOutlets/:accountId", dbController.all_outlets_get);
+router.patch(
+  "/updateOutlet/:accountId/:outletId",
+  dbController.update_outlet_patch
+);
+router.post("/newOutlet/:accountId", dbController.new_outlet_post);
+
 //This is testing for protected route
 router.post(
   "/test",

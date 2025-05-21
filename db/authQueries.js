@@ -482,3 +482,17 @@ exports.updatePaxByQueueItemId = async (data) => {
   console.log("Updated queueItem: ", updatedQueueItem);
   return updatedQueueItem;
 };
+
+exports.updateOutletByOutletAndAcctId = async (data) => {
+  const { outletId, accountId, ...updatePayload } = data;
+  const updatedOutlet = await prisma.outlet.update({
+    where: {
+      id: outletId,
+      accountId: accountId,
+    },
+    data: updatePayload,
+  });
+
+  console.log("Post update of outlet: ", updatedOutlet);
+  return updatedOutlet;
+};

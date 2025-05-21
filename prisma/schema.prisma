@@ -141,6 +141,7 @@ model QueueItem {
   quit       Boolean   @default(false)
   active     Boolean   @default(true)
   position   Int
+  inactiveAt DateTime
   //! @@check([seated != quit], name: "seated_quit_check")
   // Ensure seated and quit cannot both be true
   //If called is true, but seated is not. Start a wait timer. 
