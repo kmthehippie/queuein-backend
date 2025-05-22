@@ -171,13 +171,13 @@ exports.createOutlet = async (data) => {
     data: {
       name: data.name,
       accountId: data.accountId,
-      location: data.location,
-      googleMaps: data.googleMaps,
-      wazeMaps: data.wazeMaps,
-      imgUrl: data.imgUrl,
+      location: data.location || null,
+      googleMaps: data.googleMaps || null,
+      wazeMaps: data.wazeMaps || null,
+      imgUrl: data.imgUrl || null,
       defaultEstWaitTime: data.defaultEstWaitTime,
-      phone: data.phone,
-      hours: data.hours,
+      phone: data.phone || null,
+      hours: data.hours || null,
     },
   });
   return newOutlet;
@@ -218,6 +218,13 @@ exports.findOutletsByAcctId = async (data) => {
   const outlets = await prisma.outlet.findMany({
     where: {
       accountId: data,
+    },
+    include: {
+      account: {
+        select: {
+          companyName: true,
+        },
+      },
     },
   });
   return outlets;
@@ -485,6 +492,7 @@ exports.updatePaxByQueueItemId = async (data) => {
 
 exports.updateOutletByOutletAndAcctId = async (data) => {
   const { outletId, accountId, ...updatePayload } = data;
+  console.log("Update outlet by ", outletId, accountId);
   const updatedOutlet = await prisma.outlet.update({
     where: {
       id: outletId,
