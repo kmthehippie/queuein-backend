@@ -301,10 +301,17 @@ exports.createAQueueItem = async (data) => {
   console.log("Trying to create queue item: ", data);
   const queueItem = await prisma.queueItem.create({
     data: {
-      queueId: data.queueId,
-      customerId: data.customerId,
       pax: data.pax,
       position: data.position,
+      inactiveAt: null,
+      queue: {
+        connect: {
+          id: data.queueId,
+        },
+      },
+      customer: {
+        connect: { id: data.customerId },
+      },
     },
   });
   return queueItem;
@@ -382,7 +389,6 @@ exports.findDupeActiveCustomerInQueueItem = async (data) => {
 };
 
 exports.findOutletByQueueId = async (queueId) => {
-  console.log("Finding outlet by queue id", queueId);
   const queueOutlet = await prisma.queue.findFirst({
     where: {
       id: queueId,
@@ -391,7 +397,7 @@ exports.findOutletByQueueId = async (queueId) => {
       outlet: true,
     },
   });
-  console.log("FOund queueoutlet: ", queueOutlet);
+
   return queueOutlet;
 };
 //! USING THIS FN
@@ -419,7 +425,7 @@ exports.findCustomerByAcctIdAndNumber = async (data) => {
 };
 
 exports.findAllQueueItemsByQueueId = async (queueId) => {
-  const queue = await prisma.queue.findUnique({
+  const queue = await prisma.queue.findMany({
     where: { id: queueId },
     include: {
       queueItems: {

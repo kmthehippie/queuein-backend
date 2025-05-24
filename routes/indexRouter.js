@@ -62,6 +62,15 @@ router.patch(
   dbController.update_outlet_patch
 );
 router.post("/newOutlet/:accountId", dbController.new_outlet_post);
+router.get(
+  "/queueActivity/:accountId/:outletId",
+  dbController.queue_activity_get
+);
+router.get("/activeQueue/:queueId", dbController.active_queue_get);
+router.post("/newQueue/:accountId/:outletId", dbController.new_queue_post);
+
+router.post("/newCustomer/:queueId", dbController.new_customer_post);
+router.post("/customerRepost/:queueId", dbController.new_customer_repost);
 
 //This is testing for protected route
 router.post(
