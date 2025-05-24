@@ -510,3 +510,31 @@ exports.updateOutletByOutletAndAcctId = async (data) => {
   console.log("Post update of outlet: ", updatedOutlet);
   return updatedOutlet;
 };
+
+exports.updateSeatQueueItem = async (data) => {
+  console.log(data.queueItemId);
+  const updateSeated = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+    },
+    data: {
+      seated: data.seated,
+      active: data.active,
+    },
+  });
+  console.log("Update the seated queue item ", updateSeated);
+  return updateSeated;
+};
+
+exports.updateCallQueueItem = async (data) => {
+  console.log("Updating call to queue item ", data);
+  const updateCalled = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+    },
+    data: {
+      called: data.called,
+    },
+  });
+  return updateCalled;
+};

@@ -15,7 +15,10 @@ const {
   createACustomer,
   findOutletByQueueId,
   findDupeActiveCustomerInQueueItem,
+  updateSeatQueueItem,
+  updateCallQueueItem,
 } = require("../db/authQueries");
+const e = require("express");
 
 exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -392,4 +395,62 @@ exports.new_customer_post = [
 
 exports.new_customer_repost = [
   param("queueId").notEmpty().withMessage("Queue must have an id"),
+];
+
+exports.seat_queue_item_patch = [
+  param("queueItemId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Queue item ID cannot be empty"),
+  body("seat").isBoolean().withMessage("Seated must be a boolean"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const queueItemId = req.params.queueItemId;
+    console.log(req.body);
+    const seated = req.body.seat;
+    const dataToUpdate = {
+      queueItemId: queueItemId,
+      seated: seated,
+      active: !seated,
+    };
+    const updateSeated = await updateSeatQueueItem(dataToUpdate);
+    if (updateSeated) {
+      res
+        .status(201)
+        .json(
+          { message: "Successfully updated seat of customer" },
+          updateSeated
+        );
+    } else {
+      res.status(404).json({ message: "Error updating seating of customer" });
+    }
+  }),
+];
+
+exports.call_queue_item_patch = [
+  param("queueItemId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Queue item ID cannot be empty"),
+  body("call").isBoolean().withMessage("Seated must be a boolean"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const queueItemId = req.params.queueItemId;
+    const called = req.body.call;
+    const dataToUpdate = {
+      queueItemId: queueItemId,
+      called: called,
+    };
+    const updateCalled = await updateCallQueueItem(dataToUpdate);
+    if (updateCalled) {
+      res.status(201).json(updateCalled);
+    } else {
+      res
+        .status(404)
+        .json({ message: "Error trying to update called for queue item" });
+    }
+    console.log("Pass validation, inside asyncHandler: ", updateCalled);
+  }),
 ];

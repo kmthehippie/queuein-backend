@@ -71,6 +71,8 @@ router.post("/newQueue/:accountId/:outletId", dbController.new_queue_post);
 
 router.post("/newCustomer/:queueId", dbController.new_customer_post);
 router.post("/customerRepost/:queueId", dbController.new_customer_repost);
+router.patch("/seatQueueItem/:queueItemId", dbController.seat_queue_item_patch);
+router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
 
 //This is testing for protected route
 router.post(
