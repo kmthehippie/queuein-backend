@@ -17,8 +17,13 @@ const {
   findDupeActiveCustomerInQueueItem,
   updateSeatQueueItem,
   updateCallQueueItem,
+  findAllStaffByAcctId,
+  createStaff,
+  getStaffByNameAndAccount,
+  createAuditLog,
 } = require("../db/authQueries");
 const e = require("express");
+const { generatePw, validatePw } = require("../config/passwordUtils");
 
 exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -452,5 +457,112 @@ exports.call_queue_item_patch = [
         .json({ message: "Error trying to update called for queue item" });
     }
     console.log("Pass validation, inside asyncHandler: ", updateCalled);
+  }),
+];
+
+exports.staff_list_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("We got into the staff list get");
+    const accountId = req.params.accountId;
+    const staffList = await findAllStaffByAcctId(accountId);
+    console.log(staffList);
+    if (staffList.length !== 0) {
+      return res.status(200).json(staffList);
+    } else {
+      return res.status(404).json({ message: "Error getting staff list" });
+    }
+  }),
+];
+
+exports.new_staff_post = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  body("name").notEmpty().trim().escape().withMessage("Name cannot be empty"),
+  body("role").trim().escape(),
+  body("email").isEmail().trim().escape(),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("We got into the new staff post", req.body);
+    const accountId = req.params.accountId;
+    const body = { ...req.body };
+    console.log("Body: ", body);
+    //need to generate password
+    const pw = await generatePw(body.password);
+    console.log("New password ", pw);
+    const data = {
+      accountId: accountId,
+      name: body.name,
+      email: body.email,
+      role: body.role,
+      password: pw,
+    };
+    const staff = await createStaff(data);
+    console.log(staff);
+    if (staff.length !== 0) {
+      return res.status(200).json(staff);
+    } else {
+      return res.status(404).json({ message: "Error getting staff list" });
+    }
+  }),
+];
+
+exports.check_role_post = [
+  param("accountId").notEmpty().withMessage("Param cannot be empty"),
+  body("name").notEmpty().withMessage("Name cannot be empty"),
+  body("password").notEmpty().withMessage("Password cannot be empty"),
+  body("actionPurpose")
+    .notEmpty()
+    .escape()
+    .trim()
+    .withMessage("Action purpose cannot be empty"),
+  body("minimumRole")
+    .notEmpty()
+    .escape()
+    .trim()
+    .withMessage("Minimum role for this action"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const data = { ...req.body };
+
+    const dataToFindStaff = {
+      name: req.body.name,
+      accountId: req.params.accountId,
+    };
+
+    const ROLE_HIERARCHY = {
+      OWNER: 4,
+      MANAGER: 3,
+      ASSISTANT_MANAGER: 2,
+      HOST: 1,
+      SERVER: 0,
+      CASHIER: 0,
+      BARISTA: 0,
+    };
+
+    const staff = await getStaffByNameAndAccount(dataToFindStaff);
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    const pwValid = await validatePw(staff.password, data.password);
+    console.log("Is the password valid: ", pwValid);
+
+    const staffRoleValue = ROLE_HIERARCHY[staff.role];
+    const minimumRoleValue = ROLE_HIERARCHY[data.minimumRole];
+
+    if (staffRoleValue >= minimumRoleValue) {
+      const dataForAuditLog = {
+        staffId: staff.id,
+        actionType: req.body.actionPurpose,
+      };
+
+      await createAuditLog(dataForAuditLog);
+      return res.status(200).json({ message: "Verification successful." });
+    } else {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Insufficient role for this action." });
+    }
   }),
 ];

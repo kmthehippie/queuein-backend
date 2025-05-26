@@ -28,16 +28,20 @@ exports.createAccount = async (data) => {
   return account;
 };
 
-exports.createStaff = async ({ name, role, email, accountId }) => {
-  const staff = await prisma.staff.create({
-    data: {
-      name,
-      role,
-      email,
-      accountId,
-    },
-  });
-  return staff;
+exports.createStaff = async (data) => {
+  try {
+    const staff = await prisma.staff.create({
+      data: {
+        ...data,
+      },
+    });
+    return staff;
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw new Error("A staff member with this email already exists");
+    }
+    throw error;
+  }
 };
 
 exports.createOwnerGoogle = async (data) => {
@@ -76,9 +80,12 @@ exports.updateAccount = async (data) => {
   return account;
 };
 
-exports.getStaffByNameAndAccount = async (name, accountId) => {
-  const staff = await prisma.staff.findMany({
-    where: { name: name, accountId: accountId },
+exports.getStaffByNameAndAccount = async (data) => {
+  const staff = await prisma.staff.findFirst({
+    where: {
+      name: data.name,
+      accountId: data.accountId,
+    },
   });
   return staff;
 };
@@ -537,4 +544,18 @@ exports.updateCallQueueItem = async (data) => {
     },
   });
   return updateCalled;
+};
+
+exports.findAllStaffByAcctId = async (data) => {
+  console.log("Finding staff by acct ID: ", data);
+  const findAllStaff = await prisma.staff.findMany({
+    where: {
+      accountId: data,
+    },
+  });
+  return findAllStaff;
+};
+
+exports.createAuditLog = async (data) => {
+  console.log("Create an Audit log ", data);
 };

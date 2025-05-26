@@ -4,6 +4,7 @@ const refreshTokenExpiry = parseInt(
 const oidExpiry = parseInt(process.env.OID_EXPIRY_FOR_COOKIES);
 
 const setAuthCookies = (req, res, next, refreshToken, id) => {
+  console.log(refreshTokenExpiry);
   res.cookie("jwt", refreshToken, {
     httpOnly: true,
     sameSite: "None",

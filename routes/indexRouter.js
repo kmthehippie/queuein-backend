@@ -74,7 +74,11 @@ router.post("/customerRepost/:queueId", dbController.new_customer_repost);
 router.patch("/seatQueueItem/:queueItemId", dbController.seat_queue_item_patch);
 router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
 
-//This is testing for protected route
+router.get("/staffList/:accountId", dbController.staff_list_get);
+router.post("/newStaff/:accountId", dbController.new_staff_post);
+router.post("/authorisedRole/:accountId", dbController.check_role_post);
+
+// This is testing for protected route
 router.post(
   "/test",
   jwt.authAccessToken,

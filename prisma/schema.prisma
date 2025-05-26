@@ -33,17 +33,18 @@ model Account {
 }
 
 model Staff {
-  id         Int      @id @default(autoincrement())
-  name       String   @db.VarChar(255)
-  role       Role     @default(HOST)
-  createdAt  DateTime @default(now())
-  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id         Int        @id @default(autoincrement())
+  name       String     @db.VarChar(255)
+  role       Role       @default(HOST)
+  createdAt  DateTime   @default(now())
+  account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
-  email      String?  @unique @db.VarChar(255)
-  pfp        String?  @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
+  email      String?    @unique @db.VarChar(255)
+  pfp        String?    @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
   googleId   String?
   facebookId String?
   password   String?
+  auditLogs  AuditLog[]
 
   @@index([accountId])
   @@index([name])
@@ -153,4 +154,15 @@ model QueueItem {
 
   @@index([queueId]) // For efficient querying of queue items within a queue
   @@index([position])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  staffId    Int
+  staff      Staff    @relation(fields: [staffId], references: [id])
+  actionType String
+  timestamp  DateTime @default(now())
+
+  @@index([staffId])
+  @@index([actionType])
 }
