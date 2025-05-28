@@ -21,6 +21,8 @@ const {
   createStaff,
   getStaffByNameAndAccount,
   createAuditLog,
+  deleteStaff,
+  getStaffByIdAndAccountId,
 } = require("../db/authQueries");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
@@ -464,10 +466,8 @@ exports.staff_list_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("We got into the staff list get");
     const accountId = req.params.accountId;
     const staffList = await findAllStaffByAcctId(accountId);
-    console.log(staffList);
     if (staffList.length !== 0) {
       return res.status(200).json(staffList);
     } else {
@@ -545,6 +545,8 @@ exports.check_role_post = [
       return res.status(404).json({ message: "Staff not found" });
     }
 
+    console.log("Data: ", data, "Staff: ", staff);
+    console.log("Data pw", data.password, "Staff pw", staff.password);
     const pwValid = await validatePw(staff.password, data.password);
     console.log("Is the password valid: ", pwValid);
 
@@ -563,6 +565,46 @@ exports.check_role_post = [
       return res
         .status(403)
         .json({ message: "Forbidden: Insufficient role for this action." });
+    }
+  }),
+];
+
+exports.staff_delete = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("staffId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const accountId = req.params.accountId;
+    const staffId = req.params.staffId;
+    const data = {
+      accountId: accountId,
+      staffId: parseInt(staffId),
+    };
+    const del = await deleteStaff(data);
+    if (del) {
+      return res.status(200).json(del);
+    } else {
+      return res.status(404).json({ message: "Error deleting staff" });
+    }
+  }),
+];
+
+exports.staff_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("staffId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("Trying to get staff info");
+    const params = req.params;
+    const data = {
+      accountId: params.accountId,
+      staffId: parseInt(staffId),
+    };
+    const staffInfo = await getStaffByIdAndAccountId(data);
+    if (staffInfo) {
+      return res.status(200).json(staffInfo);
+    } else {
+      return res.status(404).json({ message: "Error, could not find staff." });
     }
   }),
 ];

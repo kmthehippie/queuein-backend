@@ -183,6 +183,7 @@ exports.normal_register_form_post = [
     }
 
     try {
+      console.log(accountPassword, ownerPassword);
       let slug = slugify.slugify(companyName);
       console.log("Slug :", slug);
       let isSlugUnique = false;
@@ -210,6 +211,7 @@ exports.normal_register_form_post = [
       }
 
       const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
+      console.log("Owner's password is hashed ", hashedOwnerPassword);
       const newOwner = await createStaff({
         name: ownerName,
         role: "OWNER",

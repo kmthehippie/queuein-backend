@@ -77,6 +77,8 @@ router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
 router.get("/staffList/:accountId", dbController.staff_list_get);
 router.post("/newStaff/:accountId", dbController.new_staff_post);
 router.post("/authorisedRole/:accountId", dbController.check_role_post);
+router.delete("/staff/:accountId/:staffId", dbController.staff_delete);
+router.get("/staff/:accountId/:staffId", dbController.staff_get);
 
 // This is testing for protected route
 router.post(

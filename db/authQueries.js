@@ -505,7 +505,6 @@ exports.updatePaxByQueueItemId = async (data) => {
 
 exports.updateOutletByOutletAndAcctId = async (data) => {
   const { outletId, accountId, ...updatePayload } = data;
-  console.log("Update outlet by ", outletId, accountId);
   const updatedOutlet = await prisma.outlet.update({
     where: {
       id: outletId,
@@ -519,7 +518,6 @@ exports.updateOutletByOutletAndAcctId = async (data) => {
 };
 
 exports.updateSeatQueueItem = async (data) => {
-  console.log(data.queueItemId);
   const updateSeated = await prisma.queueItem.update({
     where: {
       id: data.queueItemId,
@@ -534,7 +532,6 @@ exports.updateSeatQueueItem = async (data) => {
 };
 
 exports.updateCallQueueItem = async (data) => {
-  console.log("Updating call to queue item ", data);
   const updateCalled = await prisma.queueItem.update({
     where: {
       id: data.queueItemId,
@@ -547,7 +544,6 @@ exports.updateCallQueueItem = async (data) => {
 };
 
 exports.findAllStaffByAcctId = async (data) => {
-  console.log("Finding staff by acct ID: ", data);
   const findAllStaff = await prisma.staff.findMany({
     where: {
       accountId: data,
@@ -558,4 +554,35 @@ exports.findAllStaffByAcctId = async (data) => {
 
 exports.createAuditLog = async (data) => {
   console.log("Create an Audit log ", data);
+  const createLog = await prisma.auditLog.create({
+    data: {
+      staffId: data.staffId,
+      actionType: data.actionType,
+    },
+  });
+
+  return createLog;
+};
+
+exports.deleteStaff = async (data) => {
+  console.log("Delete staff data ", data);
+  const deleteStaff = await prisma.staff.delete({
+    where: {
+      id: data.staffId,
+      accountId: data.accountId,
+    },
+  });
+  return deleteStaff;
+};
+
+exports.getStaffByIdAndAccountId = async (data) => {
+  console.log("Getting data for this staff ", data);
+  const getStaff = await prisma.staff.findFirst({
+    where: {
+      id: data.staffId,
+      accountId: data.accountId,
+    },
+  });
+
+  return getStaff;
 };
