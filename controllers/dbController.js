@@ -23,9 +23,13 @@ const {
   createAuditLog,
   deleteStaff,
   getStaffByIdAndAccountId,
+  updateStaffByIdAndAcctId,
+  deleteOutletByIdAndAcctId,
 } = require("../db/authQueries");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
+
+//* OUTLET RELATED CONTROLLERS *//
 
 exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -144,6 +148,25 @@ exports.update_outlet_patch = [
   }),
 ];
 
+exports.outlet_delete = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("Inside controller's delete outlet");
+    const data = {
+      outletId: parseInt(req.params.outletId),
+      accountId: req.params.accountId,
+    };
+    const deletedOutlet = await deleteOutletByIdAndAcctId(data);
+    if (deletedOutlet) {
+      res.status(201).json(deletedOutlet);
+    } else {
+      res.status(404).json({ message: "Error deleting outlet" });
+    }
+  }),
+];
+
 exports.new_outlet_post = [
   param("accountId")
     .notEmpty()
@@ -214,6 +237,7 @@ exports.new_outlet_post = [
   }),
 ];
 
+//* QUEUE RELATED CONTROLLERS *//
 exports.queue_activity_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
@@ -283,6 +307,29 @@ exports.new_queue_post = [
   }),
 ];
 
+exports.end_queue_post = [
+  param("accountId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Params cannot be empty"),
+  param("outletId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Outlet params cannot be empty"),
+  param("queueId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Queue params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("Inside end queue post");
+  }),
+];
+
+//* QUEUEITEM/CUSTOMER RELATED CONTROLLERS *//
 exports.new_customer_post = [
   param("queueId").notEmpty().withMessage("Queue must have an id"),
   body("customerName", "Name must be a string").trim().isString().escape(),
@@ -400,6 +447,7 @@ exports.new_customer_post = [
   }),
 ];
 
+//TODO: REPOST NEW CUSTOMER -- FROM PREV POST WHERE CUSTOMER NEED TO VERIFY IF LEAVING OTHER QUEUE ETC.
 exports.new_customer_repost = [
   param("queueId").notEmpty().withMessage("Queue must have an id"),
 ];
@@ -462,6 +510,7 @@ exports.call_queue_item_patch = [
   }),
 ];
 
+//* STAFF RELATED CONTROLLERS *//
 exports.staff_list_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
@@ -498,15 +547,128 @@ exports.new_staff_post = [
       password: pw,
     };
     const staff = await createStaff(data);
-    console.log(staff);
-    if (staff.length !== 0) {
-      return res.status(200).json(staff);
+    const staffResponse = { ...staff };
+    delete staff.password;
+
+    if (staffResponse.length !== 0) {
+      return res.status(200).json(staffResponse);
     } else {
       return res.status(404).json({ message: "Error getting staff list" });
     }
   }),
 ];
 
+exports.staff_delete = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("staffId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const accountId = req.params.accountId;
+    const staffId = req.params.staffId;
+    const data = {
+      accountId: accountId,
+      staffId: parseInt(staffId),
+    };
+    const del = await deleteStaff(data);
+    if (del) {
+      return res.status(200).json(del);
+    } else {
+      return res.status(404).json({ message: "Error deleting staff" });
+    }
+  }),
+];
+
+exports.staff_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("staffId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const params = req.params;
+    const data = {
+      accountId: params.accountId,
+      staffId: parseInt(params.staffId),
+    };
+    const staffInfo = await getStaffByIdAndAccountId(data);
+    const staffResponse = { ...staffInfo };
+    delete staffInfo.password;
+
+    if (staffResponse) {
+      console.log("Found the staff info: ", staffResponse);
+      return res.status(200).json(staffResponse);
+    } else {
+      return res.status(404).json({ message: "Error, could not find staff." });
+    }
+  }),
+];
+
+exports.staff_patch = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("staffId").notEmpty().withMessage("Params cannot be empty"),
+  body("name")
+    .optional({ checkFalsy: true })
+    .isString()
+    .trim()
+    .escape()
+    .withMessage("Name cannot be empty"),
+  body("role").optional({ checkFalsy: true }).isString().trim().escape(),
+  body("email").optional({ checkFalsy: true }).isEmail().trim().escape(),
+  body("password")
+    .optional({ checkFalsy: true })
+    .isLength({ min: 6 })
+    .trim()
+    .escape(),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("Trying to update staff info");
+    const params = req.params;
+    const bodyData = req.body;
+    console.log(params, bodyData);
+    //1. FIND EXISTING STAFF
+    const dataToFindStaff = {
+      accountId: params.accountId,
+      staffId: parseInt(params.staffId),
+    };
+    const staff = await getStaffByIdAndAccountId(dataToFindStaff);
+    if (staff) {
+      //2. Build the update object conditionally
+      const updateFields = {};
+      if (bodyData.name !== undefined) {
+        updateFields.name = bodyData.name;
+      }
+      if (bodyData.role !== undefined) {
+        updateFields.role = bodyData.role;
+      }
+      if (bodyData.email !== undefined) {
+        updateFields.email = bodyData.email;
+      }
+      if (bodyData.password !== undefined && bodyData.password !== "") {
+        const hashedPW = await generatePw(bodyData.password);
+        console.log("password post hash", hashedPW);
+        updateFields.password = hashedPW;
+      }
+
+      //3. Perform update
+      const dataToUpdateStaff = {
+        accountId: params.accountId,
+        staffId: parseInt(params.staffId),
+        updateFields,
+      };
+      const updateStaff = await updateStaffByIdAndAcctId(dataToUpdateStaff);
+      const staffResponse = { ...updateStaff };
+      delete updateStaff.password;
+
+      if (updateStaff) {
+        return res.status(201).json(staffResponse);
+      } else {
+        return res.status(404).json({ message: "Error updating staff" });
+      }
+    } else {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+  }),
+];
+
+//*DOUBLE VERIFICATION CONTROLLER *//
 exports.check_role_post = [
   param("accountId").notEmpty().withMessage("Param cannot be empty"),
   body("name").notEmpty().withMessage("Name cannot be empty"),
@@ -545,10 +707,16 @@ exports.check_role_post = [
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    console.log("Data: ", data, "Staff: ", staff);
     console.log("Data pw", data.password, "Staff pw", staff.password);
+    //! NEED TO FIX WHERE PASSWORD MUST BE VALID TO RETURN RES.STATUS 200
     const pwValid = await validatePw(staff.password, data.password);
     console.log("Is the password valid: ", pwValid);
+
+    if (!pwValid) {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: Verification Failed." });
+    }
 
     const staffRoleValue = ROLE_HIERARCHY[staff.role];
     const minimumRoleValue = ROLE_HIERARCHY[data.minimumRole];
@@ -565,46 +733,6 @@ exports.check_role_post = [
       return res
         .status(403)
         .json({ message: "Forbidden: Insufficient role for this action." });
-    }
-  }),
-];
-
-exports.staff_delete = [
-  param("accountId").notEmpty().withMessage("Params cannot be empty"),
-  param("staffId").notEmpty().withMessage("Params cannot be empty"),
-  handleValidationResult,
-  asyncHandler(async (req, res, next) => {
-    const accountId = req.params.accountId;
-    const staffId = req.params.staffId;
-    const data = {
-      accountId: accountId,
-      staffId: parseInt(staffId),
-    };
-    const del = await deleteStaff(data);
-    if (del) {
-      return res.status(200).json(del);
-    } else {
-      return res.status(404).json({ message: "Error deleting staff" });
-    }
-  }),
-];
-
-exports.staff_get = [
-  param("accountId").notEmpty().withMessage("Params cannot be empty"),
-  param("staffId").notEmpty().withMessage("Params cannot be empty"),
-  handleValidationResult,
-  asyncHandler(async (req, res, next) => {
-    console.log("Trying to get staff info");
-    const params = req.params;
-    const data = {
-      accountId: params.accountId,
-      staffId: parseInt(staffId),
-    };
-    const staffInfo = await getStaffByIdAndAccountId(data);
-    if (staffInfo) {
-      return res.status(200).json(staffInfo);
-    } else {
-      return res.status(404).json({ message: "Error, could not find staff." });
     }
   }),
 ];

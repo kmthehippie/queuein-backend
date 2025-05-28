@@ -55,30 +55,45 @@ router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
 router.post("/refresh", refreshController.handle_refresh_token);
 
 //* DASHBOARD ROUTES *//
+//SIDENAV ROUTE
 router.get("/sidenav/:accountId", dbController.sidenav_outlet_get);
+
+//OUTLET RELATED ROUTES
 router.get("/allOutlets/:accountId", dbController.all_outlets_get);
 router.patch(
   "/updateOutlet/:accountId/:outletId",
   dbController.update_outlet_patch
 );
+router.delete("/delOutlet/:accountId/:outletId", dbController.outlet_delete);
 router.post("/newOutlet/:accountId", dbController.new_outlet_post);
+
+//QUEUE RELATED ROUTES
 router.get(
   "/queueActivity/:accountId/:outletId",
   dbController.queue_activity_get
 );
 router.get("/activeQueue/:queueId", dbController.active_queue_get);
 router.post("/newQueue/:accountId/:outletId", dbController.new_queue_post);
+router.post(
+  "/endQueue/:accountId/:outletId/:queueId",
+  dbController.end_queue_post
+);
 
+//CUSTOMER OR QUEUEITEM RELATED ROUTES
 router.post("/newCustomer/:queueId", dbController.new_customer_post);
 router.post("/customerRepost/:queueId", dbController.new_customer_repost);
 router.patch("/seatQueueItem/:queueItemId", dbController.seat_queue_item_patch);
 router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
 
+//STAFF RELATED ROUTES
 router.get("/staffList/:accountId", dbController.staff_list_get);
 router.post("/newStaff/:accountId", dbController.new_staff_post);
-router.post("/authorisedRole/:accountId", dbController.check_role_post);
 router.delete("/staff/:accountId/:staffId", dbController.staff_delete);
 router.get("/staff/:accountId/:staffId", dbController.staff_get);
+router.patch("/staff/:accountId/:staffId", dbController.staff_patch);
+
+//MINI VERIFICATION ROUTE
+router.post("/authorisedRole/:accountId", dbController.check_role_post);
 
 // This is testing for protected route
 router.post(

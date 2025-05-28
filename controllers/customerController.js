@@ -242,7 +242,7 @@ exports.customer_form_post = [
           .status(400)
           .json({ message: "Error creating a new customer!" });
       }
-      //! FIX: find queue length
+
       const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
         params.queueId
       );

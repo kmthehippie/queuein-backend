@@ -90,11 +90,6 @@ exports.getStaffByNameAndAccount = async (data) => {
   return staff;
 };
 
-exports.getAllStaff = async () => {
-  const allStaff = await prisma.account.findMany();
-  return allStaff;
-};
-
 exports.updateOAuthToken = async (data) => {
   console.log(data);
   const updatedToken = await prisma.oAuthToken.update({
@@ -147,11 +142,6 @@ exports.deleteOAuthTokenByRefreshToken = async (refreshToken) => {
     },
   });
   return deletedToken;
-};
-
-exports.findAllOAuthToken = async () => {
-  const allAuthTokens = await prisma.oAuthToken.findMany();
-  return allAuthTokens;
 };
 
 exports.findOAuthTokenByOID = async (oid) => {
@@ -338,12 +328,16 @@ exports.findAccountBySlug = async (slug) => {
     where: { slug: slug },
   });
   console.log("Found account using slug: ", account);
-  return {
-    id: account.id,
-    companyName: account.companyName,
-    logo: account.logo,
-    slug: account.slug,
-  };
+  if (account) {
+    return {
+      id: account.id,
+      companyName: account.companyName,
+      logo: account.logo,
+      slug: account.slug,
+    };
+  } else {
+    return null;
+  }
 };
 
 exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
@@ -548,6 +542,19 @@ exports.findAllStaffByAcctId = async (data) => {
     where: {
       accountId: data,
     },
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      createdAt: true,
+      accountId: true,
+      email: true,
+      pfp: true,
+      googleId: true,
+      facebookId: true,
+      auditLogs: true,
+      password: false,
+    },
   });
   return findAllStaff;
 };
@@ -585,4 +592,27 @@ exports.getStaffByIdAndAccountId = async (data) => {
   });
 
   return getStaff;
+};
+
+exports.updateStaffByIdAndAcctId = async (data) => {
+  const updateStaff = await prisma.staff.update({
+    where: {
+      accountId: data.accountId,
+      id: data.staffId,
+    },
+    data: data.updateFields,
+  });
+  console.log("Data has been updated: ", updateStaff);
+  return updateStaff;
+};
+
+exports.deleteOutletByIdAndAcctId = async (data) => {
+  const deleteOutlet = await prisma.outlet.delete({
+    where: {
+      id: data.outletId,
+      accountId: data.accountId,
+    },
+  });
+  console.log("Success! Deleted outlet: ", deleteOutlet);
+  return deleteOutlet;
 };
