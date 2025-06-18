@@ -24,7 +24,7 @@ router.get(
 
 //* CUSTOMER ROUTES *//
 router.get(
-  "/customerForm/:acctSlug/:outletId/:queueId",
+  "/customerForm/:acctSlug/:queueId",
   customerController.customer_form_get
 );
 router.post(
@@ -35,16 +35,21 @@ router.post(
   "/customerFormRepost/:acctSlug/:outletId/:queueId",
   customerController.customer_form_repost
 );
-
 router.post(
   "/customerQuit/:acctSlug/:queueId/:queueItemId",
   customerController.customer_quit_queue_post
 );
-
 router.post(
   "/customerUpdatePax/:acctSlug/:queueId/:queueItemId",
   customerController.customer_update_pax_post
 );
+router.post(
+  "/customerWaitingPage/:acctSlug/:queueId/:queueItemId",
+  customerController.customer_waiting_page_get
+);
+
+//CHECKING LOCAL STORAGE SETTING
+router.post("/customerVerifyLS", customerController.check_local_storage);
 
 //* ACCOUNT ROUTES *//
 router.post("/login", authController.normal_login);

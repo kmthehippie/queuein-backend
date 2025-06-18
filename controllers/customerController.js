@@ -25,6 +25,50 @@ const {
 } = require("../db/authQueries");
 const prisma = require("../script");
 
+//! LOCAL STORAGE CHECKING HERE
+exports.check_local_storage = [
+  // ADD PARAMS AND BODY HERE AND HANDLE THE VALIDATION
+  body("queueItemId")
+    .notEmpty()
+    .withMessage("No queue item id")
+    .isUUID()
+    .withMessage("Invalid queue item id")
+    .trim(),
+  body("queueId")
+    .notEmpty()
+    .withMessage("No queue Id")
+    .isUUID()
+    .withMessage("Invalid queue id")
+    .trim(),
+  body("acctSlug").notEmpty().withMessage("No account slug").trim(),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    console.log("Inside check local storage : ", req.body);
+    const { queueItemId, queueId, acctSlug } = req.body;
+    //! 1. find out if the queue item is active, not seated. not quit
+
+    const validQueueItemId = await findQueueItemByQueueItemId(queueItemId);
+    if (validQueueItemId === null) {
+      return res.status(404).json({ message: "Error, queue item not found." });
+    }
+    if (
+      validQueueItemId.quit === false &&
+      validQueueItemId.seated === false &&
+      validQueueItemId.noShow === false &&
+      validQueueItemId.active === true
+    ) {
+      return res.status(200).json({ queueItemId: validQueueItemId.id });
+    } else {
+      return res.status(400).json({
+        message:
+          "Error, queue item has either quit, seated, noShow or inactive.",
+      });
+    }
+
+    //need to return queue item id
+  }),
+];
+
 exports.landing_page = [
   param("acctSlug").notEmpty().withMessage("Slug can't be empty"),
   handleValidationResult,
@@ -164,6 +208,7 @@ exports.customer_form_get = [
   }),
 ];
 
+//!Need to fix this
 exports.customer_form_post = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").isInt().withMessage("Outlet id must be an int"),
@@ -212,14 +257,15 @@ exports.customer_form_post = [
     if (localStorageInfo !== null) {
       //FIND CUST, QUEUEITEM, MESSAGE, ACCOUNT ID
       console.log("This is the local storage info ", localStorageInfo);
-      const existingQueueItem = await findQueueItemByQueueItemId(
-        localStorageInfo.queueItemId
-      );
-      //TODO: TRUE: return cust, queueItem, msg, acctId
-      console.log(
-        "This is the result of existing queue item ",
-        existingQueueItem
-      );
+      if (localStorageInfo.expiry)
+        // const existingQueueItem = await findQueueItemByQueueItemId(
+        //   localStorageInfo.queueItemId
+        // );
+        //TODO: TRUE: return cust, queueItem, msg, acctId
+        console.log(
+          "This is the result of existing queue item ",
+          existingQueueItem
+        );
     }
 
     //* FALSE: Is customer number in system for this account?
@@ -483,5 +529,38 @@ exports.customer_update_pax_post = [
       message: `Updated pax to ${pax} for ${params.queueItemId}`,
       queueItem: updatePax,
     });
+  }),
+];
+
+exports.customer_waiting_page_get = [
+  // param("acctSlug").notEmpty().withMessage("Require slug"),
+  // param("queueId").notEmpty().withMessage("Queue must have an id"),
+  // param("queueItemId").notEmpty().withMessage("Queue Item must have an id"),
+  // handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { acctSlug, queueId, queueItemId } = req.params;
+
+    const queueItem = await findQueueItemByQueueItemId(queueItemId);
+    if (queueItem.active) {
+      const account = await findAccountBySlug(acctSlug);
+      const outlet = await findOutletByQueueId(queueId);
+
+      const dataToReturn = {
+        accountInfo: account,
+        outlet: outlet.outlet,
+        queueItem: queueItem,
+        customer: queueItem.customer,
+      };
+      //get accountInfo, get outletinfo -- no need customer
+      console.log(
+        "Data to return from customer waiting page get ",
+        dataToReturn
+      );
+      return res.status(200).json(dataToReturn);
+    } else {
+      return res
+        .status(404)
+        .json({ message: "Queue item was not found or no longer active." });
+    }
   }),
 ];

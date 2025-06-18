@@ -1,5 +1,10 @@
 const { use } = require("passport");
 const prisma = require("../script");
+const {
+  twentyFourHoursAgo,
+  fortyEightHoursAgo,
+  now,
+} = require("../helper/convertTime");
 
 exports.getAccountEmail = async (email) => {
   const emailExist = prisma.account.findUnique({
@@ -42,19 +47,6 @@ exports.createStaff = async (data) => {
     }
     throw error;
   }
-};
-
-exports.createOwnerGoogle = async (data) => {
-  const staff = await prisma.staff.create({
-    data: {
-      name: data.name,
-      role: "OWNER",
-      accountId: data.accountId,
-      email: data.email,
-      pfp: data.pfp,
-    },
-  });
-  return staff;
 };
 
 exports.createOAuthToken = async (data) => {
@@ -281,6 +273,59 @@ exports.findActiveQueueByOutletId = async (data) => {
   return queue;
 };
 
+exports.findRelevantQueueForOutlet = async (data) => {
+  // 1. Try to find an active queue first
+  let activeQueue = await prisma.queue.findFirst({
+    where: {
+      accountId: data.accountId,
+      outletId: data.outletId,
+      active: true,
+    },
+    select: {
+      id: true,
+    },
+    orderBy: {
+      startTime: "desc",
+    },
+  });
+
+  if (activeQueue) {
+    return activeQueue;
+  }
+  const potentialInactiveQueue = await prisma.queue.findFirst({
+    where: {
+      accountId: data.accountId,
+      outletId: data.outletId,
+      active: false,
+      endTime: {
+        gte: fortyEightHoursAgo,
+        lt: now,
+      },
+    },
+    select: {
+      id: true,
+    },
+    orderBy: {
+      startTime: "desc",
+    },
+  });
+  if (potentialInactiveQueue) {
+    const activeQueueItemCount = await prisma.queueItem.count({
+      where: {
+        queueId: potentialInactiveQueue.id,
+        active: true,
+        seated: false,
+        quit: false,
+      },
+    });
+    if (activeQueueItemCount > 0) {
+      return potentialInactiveQueue;
+    }
+  }
+
+  return null;
+};
+
 exports.createACustomer = async (data) => {
   const customer = await prisma.customer.create({
     data: {
@@ -401,7 +446,7 @@ exports.findOutletByQueueId = async (queueId) => {
 
   return queueOutlet;
 };
-//! USING THIS FN
+
 exports.findQueueItemsLengthByQueueId = async (queueId) => {
   const queueItemsCount = await prisma.queueItem.count({
     where: {
@@ -435,7 +480,13 @@ exports.findAllQueueItemsByQueueId = async (queueId) => {
       },
     },
   });
-  return queue;
+  let queueToReturn;
+  if (Array.isArray(queue)) {
+    queueToReturn = queue[0];
+  } else {
+    queueToReturn = queue;
+  }
+  return queueToReturn;
 };
 exports.findQueueItemsByQueueId = async (data) => {
   const queueItems = await prisma.queueItem.findMany({
@@ -456,6 +507,7 @@ exports.findCustomerByCustomerID = async (customerId) => {
 };
 
 exports.findQueueItemByQueueItemId = async (queueItemId) => {
+  console.log("Find queue item by queue item id ", queueItemId);
   const queueItem = await prisma.queueItem.findUnique({
     where: {
       id: queueItemId,
@@ -615,4 +667,34 @@ exports.deleteOutletByIdAndAcctId = async (data) => {
   });
   console.log("Success! Deleted outlet: ", deleteOutlet);
   return deleteOutlet;
+};
+
+exports.endQueueByQueueId = async (data) => {
+  const endQueue = await prisma.queue.update({
+    where: {
+      id: data.queueId,
+    },
+    data: {
+      active: false,
+      endTime: Date.now(),
+    },
+  });
+  console.log(`${data.queueId} queue has ended. It is no longer active`);
+  return endQueue;
+};
+
+exports.checkStaffValidity = async (data) => {
+  const checkValid = await prisma.staff.findFirst({
+    where: {
+      id: data.staffId,
+      role: data.role,
+      accountId: data.accountId,
+      name: data.name,
+    },
+  });
+  delete checkValid.password;
+  delete checkValid.pfp;
+  delete checkValid.googleId;
+  delete checkValid.facebookId;
+  return checkValid;
 };

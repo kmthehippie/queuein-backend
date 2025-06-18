@@ -25,6 +25,9 @@ const {
   getStaffByIdAndAccountId,
   updateStaffByIdAndAcctId,
   deleteOutletByIdAndAcctId,
+  endQueueByQueueId,
+  findActiveQueueItemsInInactiveQueues,
+  findRelevantQueueForOutlet,
 } = require("../db/authQueries");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
@@ -82,9 +85,7 @@ exports.update_outlet_patch = [
   body("location")
     .optional({ checkFalsy: true })
     .notEmpty()
-    .withMessage("Location cannot be empty if provided.")
-    .trim()
-    .escape(),
+    .withMessage("Location cannot be empty if provided."),
   body("googleMaps")
     .optional({ checkFalsy: true })
     .isURL()
@@ -182,7 +183,6 @@ exports.new_outlet_post = [
     .escape(),
   body("location")
     .optional({ checkFalsy: true })
-    .escape()
     .isLength({ min: 1 })
     .withMessage("Location cannot be an empty string if provided."),
   body("googleMaps")
@@ -249,18 +249,21 @@ exports.queue_activity_get = [
       accountId: req.params.accountId,
       outletId: parseInt(req.params.outletId),
     };
-    const activeQueue = await findActiveQueuesByOutletAndAccountId(data);
     const outlet = await findOutletByIdAndAccountId({
       accountId: req.params.accountId,
       id: parseInt(req.params.outletId),
     });
+    if (!outlet) {
+      return res.status(404).json({ message: "Error, outlet not found" });
+    }
+    const queue = await findRelevantQueueForOutlet(data);
 
-    if (activeQueue.length !== 0) {
-      return res.status(201).json({ queue: activeQueue[0], outlet });
+    if (queue !== null) {
+      return res.status(200).json({ queue, outlet });
     } else {
       return res
         .status(404)
-        .json({ message: "There are no active queues", outlet });
+        .json({ message: "No active queues. No active queue items." });
     }
   }),
 ];
@@ -326,6 +329,16 @@ exports.end_queue_post = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     console.log("Inside end queue post");
+
+    const data = req.params;
+    const endQueue = await endQueueByQueueId(data);
+    if (endQueue) {
+      return res.status(201).json(endQueue);
+    } else {
+      return res
+        .status(404)
+        .json({ message: "Error trying to end queue. Queue is still active." });
+    }
   }),
 ];
 
@@ -707,11 +720,7 @@ exports.check_role_post = [
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    console.log("Data pw", data.password, "Staff pw", staff.password);
-    //! NEED TO FIX WHERE PASSWORD MUST BE VALID TO RETURN RES.STATUS 200
     const pwValid = await validatePw(staff.password, data.password);
-    console.log("Is the password valid: ", pwValid);
-
     if (!pwValid) {
       return res
         .status(403)
@@ -728,7 +737,13 @@ exports.check_role_post = [
       };
 
       await createAuditLog(dataForAuditLog);
-      return res.status(200).json({ message: "Verification successful." });
+      const dataForFront = {
+        staffId: staff.id,
+        staffRole: staff.role,
+        staffName: staff.name,
+      };
+
+      return res.status(200).json(dataForFront);
     } else {
       return res
         .status(403)

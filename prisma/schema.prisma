@@ -140,6 +140,7 @@ model QueueItem {
   called     Boolean   @default(false)
   seated     Boolean   @default(false)
   quit       Boolean   @default(false)
+  noShow     Boolean   @default(false)
   active     Boolean   @default(true)
   position   Int
   inactiveAt DateTime?
