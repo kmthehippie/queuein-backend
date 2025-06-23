@@ -34,7 +34,9 @@ require("./config/passportConfig");
 app.use("/", indexRouter);
 
 const server = http.createServer(app);
-setupSocket(server);
+const io = setupSocket(server);
+app.set("io", io);
+
 server.listen(process.env.PORT, () => {
   console.log(`App is now listening on port ${process.env.PORT}`);
 });

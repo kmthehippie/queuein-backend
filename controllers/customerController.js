@@ -27,7 +27,6 @@ const prisma = require("../script");
 
 //! LOCAL STORAGE CHECKING HERE
 exports.check_local_storage = [
-  // ADD PARAMS AND BODY HERE AND HANDLE THE VALIDATION
   body("queueItemId")
     .notEmpty()
     .withMessage("No queue item id")
@@ -43,10 +42,7 @@ exports.check_local_storage = [
   body("acctSlug").notEmpty().withMessage("No account slug").trim(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Inside check local storage : ", req.body);
     const { queueItemId, queueId, acctSlug } = req.body;
-    //! 1. find out if the queue item is active, not seated. not quit
-
     const validQueueItemId = await findQueueItemByQueueItemId(queueItemId);
     if (validQueueItemId === null) {
       return res.status(404).json({ message: "Error, queue item not found." });
@@ -64,8 +60,6 @@ exports.check_local_storage = [
           "Error, queue item has either quit, seated, noShow or inactive.",
       });
     }
-
-    //need to return queue item id
   }),
 ];
 
@@ -533,29 +527,24 @@ exports.customer_update_pax_post = [
 ];
 
 exports.customer_waiting_page_get = [
-  // param("acctSlug").notEmpty().withMessage("Require slug"),
-  // param("queueId").notEmpty().withMessage("Queue must have an id"),
-  // param("queueItemId").notEmpty().withMessage("Queue Item must have an id"),
-  // handleValidationResult,
+  param("acctSlug").notEmpty().withMessage("Require slug"),
+  param("queueId").notEmpty().withMessage("Queue must have an id"),
+  param("queueItemId").notEmpty().withMessage("Queue Item must have an id"),
+  handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { acctSlug, queueId, queueItemId } = req.params;
 
     const queueItem = await findQueueItemByQueueItemId(queueItemId);
+    console.log("waiting page customer: ", queueItem);
     if (queueItem.active) {
       const account = await findAccountBySlug(acctSlug);
       const outlet = await findOutletByQueueId(queueId);
-
       const dataToReturn = {
         accountInfo: account,
         outlet: outlet.outlet,
         queueItem: queueItem,
         customer: queueItem.customer,
       };
-      //get accountInfo, get outletinfo -- no need customer
-      console.log(
-        "Data to return from customer waiting page get ",
-        dataToReturn
-      );
       return res.status(200).json(dataToReturn);
     } else {
       return res

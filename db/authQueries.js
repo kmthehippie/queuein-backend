@@ -589,6 +589,20 @@ exports.updateCallQueueItem = async (data) => {
   return updateCalled;
 };
 
+exports.updateCallQueueItemNull = async (data) => {
+  const updateNullCalled = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+      calledAt: null,
+    },
+    data: {
+      called: data.called,
+      calledAt: new Date(),
+    },
+  });
+  return updateNullCalled;
+};
+
 exports.findAllStaffByAcctId = async (data) => {
   const findAllStaff = await prisma.staff.findMany({
     where: {

@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
-const { header, body, param } = require("express-validator");
+const { header, body, param, check } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
+const { sendQueueUpdateForHost } = require("../helper/socketHelper");
 const {
   findOutletsByAcctId,
   createOutlet,
@@ -27,10 +28,15 @@ const {
   deleteOutletByIdAndAcctId,
   endQueueByQueueId,
   findActiveQueueItemsInInactiveQueues,
+  findQueueItemByQueueItemId,
   findRelevantQueueForOutlet,
+  updateCallQueueItemNull,
 } = require("../db/authQueries");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
+const {
+  PrismaClientKnownRequestError,
+} = require("@prisma/client/runtime/library");
 
 //* OUTLET RELATED CONTROLLERS *//
 
@@ -270,13 +276,7 @@ exports.queue_activity_get = [
 
 exports.active_queue_get = [
   asyncHandler(async (req, res, next) => {
-    console.log(req.params);
     const queueItems = await findAllQueueItemsByQueueId(req.params.queueId);
-    console.log(
-      "Here are the queue items for this queue id:",
-      req.params.queueId,
-      queueItems
-    );
     if (queueItems.length !== 0) {
       return res.status(201).json(queueItems);
     } else {
@@ -502,24 +502,87 @@ exports.call_queue_item_patch = [
     .trim()
     .escape()
     .withMessage("Queue item ID cannot be empty"),
-  body("call").isBoolean().withMessage("Seated must be a boolean"),
+  body("called").isBoolean().withMessage("Seated must be a boolean"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const queueItemId = req.params.queueItemId;
-    const called = req.body.call;
+    const calledStatus = req.body.called;
     const dataToUpdate = {
       queueItemId: queueItemId,
-      called: called,
+      called: calledStatus,
     };
-    const updateCalled = await updateCallQueueItem(dataToUpdate);
-    if (updateCalled) {
-      res.status(201).json(updateCalled);
-    } else {
-      res
-        .status(404)
-        .json({ message: "Error trying to update called for queue item" });
+
+    const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
+    let updateCalled = null;
+    try {
+      if (existingQueueItem.calledAt === null && calledStatus) {
+        updateCalled = await updateCallQueueItemNull(dataToUpdate);
+      } else {
+        updateCalled = await updateCallQueueItem(dataToUpdate);
+      }
+    } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        console.warn(
+          "Race condition. 2 hosts are triggering called at same time."
+        );
+        try {
+          const checkExistingQueueItem = await findQueueItemByQueueItemId(
+            queueItemId
+          );
+          if (!checkExistingQueueItem) {
+            return res
+              .status(404)
+              .json({
+                message:
+                  "Existing queue item not found and race condition happened.",
+              });
+          }
+          if (checkExistingQueueItem.calledAt === null) {
+            updateCalled = await updateCallQueueItemNull(dataToUpdate);
+          } else {
+            updateCalled = await updateCallQueueItem(dataToUpdate);
+          }
+        } catch (fallbackErr) {
+          console.warn("Something went wrong");
+          return res
+            .status(500)
+            .json({ message: "Failure to update customer's call status" });
+        }
+      } else {
+        return res
+          .status(500)
+          .json({ message: "Failure to update customer's call status" });
+      }
     }
-    console.log("Pass validation, inside asyncHandler: ", updateCalled);
+
+    const queueId = updateCalled.queueId;
+    const position = updateCalled.position;
+
+    if (!existingQueueItem) {
+      return res
+        .status(404)
+        .json({ message: "Error updating queue item. Not Found." });
+    }
+
+    if (calledStatus) {
+      const io = req.app.get("io");
+      if (queueId) {
+        await sendQueueUpdateForHost(io, `queue_${queueId}`);
+      }
+      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+        queueItemId: queueItemId,
+        //? Pass relevant data
+        position: position,
+        message: "It's your turn!",
+      });
+    }
+    res.status(201).json(updateCalled);
+
+    //Notes:
+    //We pull the socket into the controller here because we want to ensure that there is only ONE source of truth and prevent race conditions. If we put the emit separate from here (meaning use the socket), we will likely run in to bugs.
   }),
 ];
 

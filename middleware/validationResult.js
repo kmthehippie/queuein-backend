@@ -4,6 +4,7 @@ const { validationResult } = require("express-validator");
 const handleValidationResult = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log("Error handling validation: ", errors);
     return res.status(400).json({
       message: "There is error in handling validation",
       errors: errors.array(),

@@ -138,6 +138,7 @@ model QueueItem {
   createdAt  DateTime  @default(now())
   pax        Int
   called     Boolean   @default(false)
+  calledAt   DateTime?
   seated     Boolean   @default(false)
   quit       Boolean   @default(false)
   noShow     Boolean   @default(false)
