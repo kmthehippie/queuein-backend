@@ -45,9 +45,11 @@ const setupSocket = (server) => {
       socket.join(queueId);
     });
 
-    socket.on("set_customer_id", (customerId) => {
-      console.log(`Socket ${socket.id} setting customerId: ${customerId}`);
-      socket.customerId = customerId;
+    socket.on("set_queue_item_id", (queueItemId) => {
+      console.log(
+        `We are setting the ${queueItemId} for queue item id on ${socket.id} socket`
+      );
+      socket.queueItemId = queueItemId;
     });
 
     socket.on("join_queue_item_id", (queueItemId) => {
@@ -83,8 +85,8 @@ const setupSocket = (server) => {
         `Customer on ${socket.id} socket requested for an refresh for queue: ${queueId}`
       );
       console.log("This is a real socket?", !!socket);
+
       try {
-        console.log("This is the customer id ", socket.customerId);
         const processedData = await getProcessedQueueData(
           `queue_${queueId}`,
           socket
@@ -92,7 +94,6 @@ const setupSocket = (server) => {
 
         if (processedData) {
           socket.emit("res_queue_refresh", processedData);
-          console.log("Data being emitted", processedData);
         } else {
           // Handle the case where fetching processed data failed
           socket.emit("res_queue_refresh", {
@@ -109,9 +110,6 @@ const setupSocket = (server) => {
   });
   return io;
 };
-
-//Need a function to gather data for the HOST end. What data needs to be updated in the host?
-//Example when host calls customer => there should be a queue update that triggers customer ui to
 
 const updatePax = async () => {};
 

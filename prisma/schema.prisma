@@ -117,34 +117,35 @@ model Queue {
   @@index([accountId])
 }
 
+//If VIP true, then we create a customer. Else, only create a queue item.
 model Customer {
   id         String      @id @unique @default(uuid())
   name       String?     @db.VarChar(255)
   number     String?     @unique @db.VarChar(25)
   VIP        Boolean     @default(true)
-  //If VIP is false, then after every 7 days, we delete number in Customer file. 
-  //But the Customer with name exist and remains so that we can use it for metrics.
   queueItems QueueItem[] @relation("CustomerQueueItem")
   account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
 }
 
 model QueueItem {
-  id         String    @id @unique @default(uuid())
-  queue      Queue     @relation(fields: [queueId], references: [id])
-  queueId    String
-  customerId String?
-  customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
-  createdAt  DateTime  @default(now())
-  pax        Int
-  called     Boolean   @default(false)
-  calledAt   DateTime?
-  seated     Boolean   @default(false)
-  quit       Boolean   @default(false)
-  noShow     Boolean   @default(false)
-  active     Boolean   @default(true)
-  position   Int
-  inactiveAt DateTime?
+  id            String    @id @unique @default(uuid())
+  queue         Queue     @relation(fields: [queueId], references: [id])
+  queueId       String
+  customerId    String?
+  customer      Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+  createdAt     DateTime  @default(now())
+  pax           Int
+  name          String?   @db.VarChar(255)
+  contactNumber String?
+  called        Boolean   @default(false)
+  calledAt      DateTime?
+  seated        Boolean   @default(false)
+  quit          Boolean   @default(false)
+  noShow        Boolean   @default(false)
+  active        Boolean   @default(true)
+  position      Int
+  inactiveAt    DateTime?
   //! @@check([seated != quit], name: "seated_quit_check")
   // Ensure seated and quit cannot both be true
   //If called is true, but seated is not. Start a wait timer. 

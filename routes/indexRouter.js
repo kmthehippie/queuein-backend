@@ -32,10 +32,6 @@ router.post(
   customerController.customer_form_post
 );
 router.post(
-  "/customerFormRepost/:acctSlug/:outletId/:queueId",
-  customerController.customer_form_repost
-);
-router.post(
   "/customerQuit/:acctSlug/:queueId/:queueItemId",
   customerController.customer_quit_queue_post
 );
@@ -86,7 +82,6 @@ router.post(
 
 //CUSTOMER OR QUEUEITEM RELATED ROUTES
 router.post("/newCustomer/:queueId", dbController.new_customer_post);
-router.post("/customerRepost/:queueId", dbController.new_customer_repost);
 router.patch("/seatQueueItem/:queueItemId", dbController.seat_queue_item_patch);
 router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
 

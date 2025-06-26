@@ -339,11 +339,13 @@ exports.createACustomer = async (data) => {
   return customer;
 };
 
-exports.createAQueueItem = async (data) => {
+exports.createAQueueItemVIP = async (data) => {
   console.log("Trying to create queue item: ", data);
   const queueItem = await prisma.queueItem.create({
     data: {
       pax: data.pax,
+      name: data.name,
+      contactNumber: data.contactNumber,
       position: data.position,
       inactiveAt: null,
       queue: {
@@ -353,6 +355,24 @@ exports.createAQueueItem = async (data) => {
       },
       customer: {
         connect: { id: data.customerId },
+      },
+    },
+  });
+  return queueItem;
+};
+exports.createAQueueItem = async (data) => {
+  console.log("Trying to create queue item: ", data);
+  const queueItem = await prisma.queueItem.create({
+    data: {
+      pax: data.pax,
+      position: data.position,
+      name: data.name,
+      contactNumber: data.contactNumber,
+      inactiveAt: null,
+      queue: {
+        connect: {
+          id: data.queueId,
+        },
       },
     },
   });
@@ -576,6 +596,21 @@ exports.updateSeatQueueItem = async (data) => {
   console.log("Update the seated queue item ", updateSeated);
   return updateSeated;
 };
+exports.updateSeatQueueItemNull = async (data) => {
+  const updateSeated = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+      inactiveAt: null,
+    },
+    data: {
+      seated: data.seated,
+      active: data.active,
+      inactiveAt: new Date(),
+    },
+  });
+  console.log("Update the seated queue item ", updateSeated);
+  return updateSeated;
+};
 
 exports.updateCallQueueItem = async (data) => {
   const updateCalled = await prisma.queueItem.update({
@@ -711,4 +746,16 @@ exports.checkStaffValidity = async (data) => {
   delete checkValid.googleId;
   delete checkValid.facebookId;
   return checkValid;
+};
+
+exports.findQueueItemByContactNumberAndQueueId = async (data) => {
+  console.log("This is the data for finding queue item:", data);
+  const queueItem = await prisma.queueItem.findMany({
+    where: {
+      queueId: data.queueId,
+      contactNumber: data.contactNumber,
+    },
+  });
+
+  return queueItem;
 };

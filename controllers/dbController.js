@@ -31,6 +31,10 @@ const {
   findQueueItemByQueueItemId,
   findRelevantQueueForOutlet,
   updateCallQueueItemNull,
+  findQueueItemByContactNumberAndQueueId,
+  createAQueueItemVIP,
+  findQueueItemsByQueueId,
+  updateSeatQueueItemNull,
 } = require("../db/authQueries");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
@@ -351,118 +355,116 @@ exports.new_customer_post = [
   body("pax", "Pax must be an integer").trim().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const queueId = req.params.queueId;
-    const customer = {
-      queueId: queueId,
-      ...req.body,
+    const { queueId } = req.params;
+    const { customerName, customerNumber, VIP, pax, accountId } = req.body;
+
+    const io = req.app.get("io");
+
+    const getUpdatedQueueItems = async (currQueueId) => {
+      const updatedQueueData = await findQueueItemsByQueueId(currQueueId);
+      return updatedQueueData;
     };
-    console.log("THis is the data from new customer post", customer);
-    //1. Check if customer number is in system for this account?
-    const customerExist = await findDuplicateCustomerByNumberAndAcctId({
-      number: customer.customerNumber,
-      accountId: customer.accountId,
-    });
-    console.log("Does customer exist? ", customerExist);
-    //2. False -> create new customer and new queue item
-    if (customerExist.length === 0) {
-      const dataForNewCustomer = {
-        name: customer.customerName,
-        number: customer.customerNumber,
-        VIP: customer.VIP,
-        accountId: customer.accountId,
-      };
-      const newCustomer = await createACustomer(dataForNewCustomer);
-      if (!newCustomer) {
-        return res
-          .status(400)
-          .json({ message: "Error creating a new customer!" });
+
+    const dataToFindQueueItem = {
+      queueId: queueId,
+      contactNumber: customerNumber,
+    };
+    const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
+      dataToFindQueueItem
+    );
+    const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
+      queueId
+    );
+    const newPosition = existingQueueItemsLength + 1;
+
+    const activeExistingQueueItem = existingQueueItem.find(
+      (item) => item.active
+    );
+
+    if (activeExistingQueueItem) {
+      if (customerName === activeExistingQueueItem.name) {
+        const updatedQueueItems = await getUpdatedQueueItems(queueId);
+        console.log("Updated queue items: ", updatedQueueItems);
+        if (io) {
+          io.to(`queue_${queueId}`).emit(
+            "host_queue_update",
+            updatedQueueItems
+          );
+        }
+        return res.status(200).json({
+          message: `${customerName} has an existing active queue item at ${activeExistingQueueItem.position} position`,
+          queueItem: activeExistingQueueItem,
+        });
       }
-      const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
-        queueId
-      );
+    }
+
+    if (VIP === false) {
       const dataForNewQueueItem = {
         queueId: queueId,
-        customerId: newCustomer.id,
-        pax: parseInt(customer.pax),
-        position: existingQueueItemsLength + 1,
+        pax: parseInt(pax),
+        name: customerName,
+        contactNumber: customerNumber,
+        position: newPosition,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
       if (!newQueueItem) {
         return res
           .status(400)
-          .json({ message: "Error creating a new queue item!" });
+          .json({ message: "Error creating a new queue item" });
       }
-      res.status(201).json({
-        message: `Success! New customer, ${newCustomer.name} has been added to queue`,
+      return res.status(201).json({
+        message: `Success! You have created a queue item for ${customerName}.`,
         queueItem: newQueueItem,
-        customer: newCustomer[0],
       });
     } else {
-      //3. True -> Does queueItem.active exist for this customer?
-      const dataForActiveQueueItem = {
-        queueId: queueId,
-        customerId: customerExist[0].id,
-      };
-      const queueItemActive = await findDupeActiveCustomerInQueueItem(
-        dataForActiveQueueItem
-      );
-      if (queueItemActive.length === 0 || queueItemActive[0] === undefined) {
-        //FALSE: create a new queue item. return existingCust, newQueueItem, acctId, msg
-        // return EXISTINGcust, newQueueItem, acctId, msg
-        const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
-          queueId
-        );
-        const dataForNewQueueItem = {
-          queueId: queueId,
-          customerId: customerExist[0].id,
-          pax: parseInt(customer.pax),
-          position: existingQueueItemsLength + 1,
+      let customerToLink = null;
+      const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
+        number: customerNumber,
+        accountId: accountId,
+      });
+      if (existingCustomer.length === 0) {
+        const dataForNewCustomer = {
+          name: customerName,
+          number: customerNumber,
+          VIP: VIP,
+          accountId: accountId,
         };
-        const newQueueItem = await createAQueueItem(dataForNewQueueItem);
-        if (!newQueueItem) {
+        customerToLink = await createACustomer(dataForNewCustomer);
+        if (!customerToLink) {
           return res
             .status(400)
-            .json({ message: "Error creating a new queue item!" });
+            .json({ message: "Error creating a new customer." });
         }
-        console.log(
-          "Customer name when customer exist and enters a new queue: ",
-          customerExist
-        );
-        res.status(201).json({
-          message: `Success! Returning customer, ${customerExist[0].name} has been added to queue.`,
-          queueItem: newQueueItem,
-          customer: customerExist[0],
-        });
+      } else if (existingCustomer.length === 1) {
+        customerToLink = existingCustomer[0];
       } else {
-        if (queueItemActive[0].queueId === queueId) {
-          res.status(201).json({
-            message: `This customer is already in queue. ${customerExist[0].name} at ${queueItemActive[0].position} position`,
-            queueItem: queueItemActive[0],
-            customer: customerExist[0],
-          });
-        } else {
-          const prevQueueLocation = await findOutletByQueueId(
-            queueItemActive[0].queueId
-          );
-          console.log("Previous queue details, ", prevQueueLocation);
-          //FALSE: PROMPT CUSTOMER: Do you wish to leave your previous queue at queue.location?
-          res.status(406).json({
-            message: `This customer (${customerExist[0].name}) is in a queue at ${prevQueueLocation.outlet.name}.`,
-            previousQueueId: prevQueueLocation.id,
-            currentQueueId: queueId,
-            previousQueueItemId: queueItemActive[0].id,
-            customerId: queueItemActive[0].customerId,
-            previousOutlet: prevQueueLocation.outlet.name,
-          });
-        }
+        return res.status(500).json({
+          message:
+            "Database inconsistency. Multiple VIP customers with the same number found.",
+        });
       }
+
+      const dataForNewQueueItem = {
+        queueId: queueId,
+        pax: parseInt(pax),
+        name: customerName,
+        contactNumber: customerNumber,
+        position: newPosition,
+        customerId: customerToLink.id,
+      };
+      const newQueueItem = await createAQueueItemVIP(dataForNewQueueItem);
+      if (!newQueueItem) {
+        return res
+          .status(400)
+          .json({ message: "Error creating a new queue item for VIP" });
+      }
+      return res.status(201).json({
+        message: `Success. ${customerName} has entered the queue.`,
+        queueItem: newQueueItem,
+        customer: customerToLink,
+      });
     }
   }),
-];
-
-//TODO: REPOST NEW CUSTOMER -- FROM PREV POST WHERE CUSTOMER NEED TO VERIFY IF LEAVING OTHER QUEUE ETC.
-exports.new_customer_repost = [
-  param("queueId").notEmpty().withMessage("Queue must have an id"),
 ];
 
 exports.seat_queue_item_patch = [
@@ -471,24 +473,85 @@ exports.seat_queue_item_patch = [
     .trim()
     .escape()
     .withMessage("Queue item ID cannot be empty"),
-  body("seat").isBoolean().withMessage("Seated must be a boolean"),
+  body("seated").isBoolean().withMessage("Seated must be a boolean"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const queueItemId = req.params.queueItemId;
-    console.log(req.body);
-    const seated = req.body.seat;
+    const { queueItemId } = req.params;
+    const { seated } = req.body;
     const dataToUpdate = {
       queueItemId: queueItemId,
       seated: seated,
-      active: !seated,
+      active: false,
     };
-    const updateSeated = await updateSeatQueueItem(dataToUpdate);
-    if (updateSeated) {
+
+    const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
+    let updatedSeated = null;
+    try {
+      if (existingQueueItem.inactiveAt === null && seated) {
+        updatedSeated = await updateSeatQueueItemNull(dataToUpdate);
+      } else {
+        updatedSeated = await updateSeatQueueItem(dataToUpdate);
+      }
+    } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        console.warn(
+          "Race condition. 2 hosts are triggering seated at the same time"
+        );
+        try {
+          const checkExistingQueueItem = await findQueueItemByQueueItemId(
+            queueItemId
+          );
+          if (!checkExistingQueueItem) {
+            return res.status(404).json({
+              message:
+                "Existing queue item not found and race condition happened.",
+            });
+          }
+          if (checkExistingQueueItem.inactiveAt === null) {
+            updateCalled = await updateCallQueueItemNull(dataToUpdate);
+          } else {
+            updateCalled = await updateCallQueueItem(dataToUpdate);
+          }
+        } catch (fallbackErr) {
+          console.warn("Something went wrong");
+          return res
+            .status(500)
+            .json({ message: "Failure to update customer's seated status" });
+        }
+      } else {
+        return res
+          .status(500)
+          .json({ message: "Failure to update customer's seated status" });
+      }
+    }
+
+    if (!existingQueueItem) {
+      return res
+        .status(404)
+        .json({ message: "Error updating queue item. Not found." });
+    }
+    const queueId = updatedSeated.queueId;
+    const position = updatedSeated.position;
+
+    if (updatedSeated !== null) {
+      const io = req.app.get("io");
+      if (queueId) {
+        await sendQueueUpdateForHost(io, `queue_${queueId}`);
+      }
+      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+        alert: true,
+        queueItemId: queueItemId,
+        position: position,
+        message: "You have been seated! Please enjoy your meal!",
+      });
       res
         .status(201)
         .json(
           { message: "Successfully updated seat of customer" },
-          updateSeated
+          updatedSeated
         );
     } else {
       res.status(404).json({ message: "Error updating seating of customer" });
@@ -533,12 +596,10 @@ exports.call_queue_item_patch = [
             queueItemId
           );
           if (!checkExistingQueueItem) {
-            return res
-              .status(404)
-              .json({
-                message:
-                  "Existing queue item not found and race condition happened.",
-              });
+            return res.status(404).json({
+              message:
+                "Existing queue item not found and race condition happened.",
+            });
           }
           if (checkExistingQueueItem.calledAt === null) {
             updateCalled = await updateCallQueueItemNull(dataToUpdate);
@@ -573,8 +634,8 @@ exports.call_queue_item_patch = [
         await sendQueueUpdateForHost(io, `queue_${queueId}`);
       }
       io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+        alert: true,
         queueItemId: queueItemId,
-        //? Pass relevant data
         position: position,
         message: "It's your turn!",
       });

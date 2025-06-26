@@ -21,9 +21,10 @@ exports.handle_refresh_token = [
 
     const refreshToken = cookies.jwt;
     const oid = cookies.oid;
-    console.log("Refresh token and oid cookies: ", refreshToken, oid);
+
     try {
       const expiry = jwt.decode(refreshToken);
+
       if (expiry && expiry.exp) {
         const time = Math.floor(Date.now() / 1000);
         console.log("Expired Refresh Token?", expiry.exp < time);
@@ -37,19 +38,14 @@ exports.handle_refresh_token = [
             .status(401)
             .json({ message: "Error. Invalid or expired refresh token." });
         }
-        console.log("Refresh token: ", refreshToken);
+
         const OAuthToken = await findOAuthTokenByRefreshToken(refreshToken);
         if (!OAuthToken) {
           return res.status(401).json({
             message: "There is no OAuthToken with this refresh token id",
           });
         }
-        console.log(
-          "There is an oauthtoken with this refresh token: ",
-          OAuthToken
-        );
-        console.log("oauthtoken's id and oid", OAuthToken.id, oid);
-        console.log("is oauthtokenid === oid", OAuthToken.id === oid);
+
         if (oid) {
           if (OAuthToken.id !== oid) {
             console.warn("OID cookie does not match OAuthToken ID.");

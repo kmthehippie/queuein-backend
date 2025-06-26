@@ -4,28 +4,28 @@ const handleValidationResult = require("../middleware/validationResult");
 const { convertText } = require("../helper/convertText");
 const {
   findAccountByName,
+  findQueueItemsByQueueId,
+  findQueueByQueueId,
+  findDuplicateCustomerInQueue,
+  findDupeActiveCustomerInQueueItem,
+  findCustomerByCustomerID,
   findOutletsByAcctId,
   findActiveQueuesByOutletAndAccountId,
   findOutletByIdAndAccountId,
   findActiveQueueByOutletId,
-  findQueueItemsByQueueId,
   findAccountBySlug,
   createACustomer,
   createAQueueItem,
-  findQueueByQueueId,
   findDuplicateCustomerByNumberAndAcctId,
-  findDuplicateCustomerInQueue,
-  findDupeActiveCustomerInQueueItem,
   findOutletByQueueId,
   findQueueItemsLengthByQueueId,
   findQueueItemByQueueItemId,
-  findCustomerByCustomerID,
   updateQueueItemByQueueItemId,
   updatePaxByQueueItemId,
+  findQueueItemByContactNumberAndQueueId,
+  createAQueueItemVIP,
 } = require("../db/authQueries");
-const prisma = require("../script");
 
-//! LOCAL STORAGE CHECKING HERE
 exports.check_local_storage = [
   body("queueItemId")
     .notEmpty()
@@ -42,7 +42,7 @@ exports.check_local_storage = [
   body("acctSlug").notEmpty().withMessage("No account slug").trim(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const { queueItemId, queueId, acctSlug } = req.body;
+    const { queueItemId } = req.body;
     const validQueueItemId = await findQueueItemByQueueItemId(queueItemId);
     if (validQueueItemId === null) {
       return res.status(404).json({ message: "Error, queue item not found." });
@@ -202,267 +202,113 @@ exports.customer_form_get = [
   }),
 ];
 
-//!Need to fix this
 exports.customer_form_post = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").isInt().withMessage("Outlet id must be an int"),
   param("queueId").notEmpty().withMessage("Queue must have an id"),
   //validate body data
-  body("customerInfo.customerName", "Name must be a string")
-    .trim()
-    .isString()
-    .escape(),
-  body("customerInfo.customerNumber", "Number must be valid")
-    .trim()
-    .isString()
-    .escape(),
-  body("customerInfo.VIP", "VIP must be boolean").isBoolean(),
-  body("customerInfo.pax", "Pax must be an integer").trim().isInt().escape(),
-  //Validate local storage info
-  body("localStorageInfo")
-    .optional({ nullable: true })
-    .isObject()
-    .withMessage("localStorageInfo must be an object if provided"),
-  body("localStorageInfo.queueItemId")
-    .optional()
-    .isString()
-    .withMessage("queueItemId in localStorageInfo must be a string")
-    .isUUID()
-    .escape(),
-  body("localStorageInfo.queueId")
-    .optional()
-    .isString()
-    .withMessage("queue id in local storage info must be a string")
-    .escape(),
-  body("localStorageInfo.acctSlug")
-    .optional()
-    .isString()
-    .withMessage("acctSlug in local storage info must be a string")
-    .escape(),
+  body("customerName", "Name must be a string").trim().isString().escape(),
+  body("customerNumber", "Number must be valid").trim().isString().escape(),
+  body("VIP", "VIP must be boolean").isBoolean(),
+  body("pax", "Pax must be an integer").trim().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const customer = req.body.customerInfo;
-    console.log("Customer info: ", customer);
-    const localStorageInfo = req.body.localStorageInfo;
-    const params = req.params;
-    const account = await findAccountBySlug(params.acctSlug);
-
-    //* Localstorage.queueItem Id exist?
-    if (localStorageInfo !== null) {
-      //FIND CUST, QUEUEITEM, MESSAGE, ACCOUNT ID
-      console.log("This is the local storage info ", localStorageInfo);
-      if (localStorageInfo.expiry)
-        // const existingQueueItem = await findQueueItemByQueueItemId(
-        //   localStorageInfo.queueItemId
-        // );
-        //TODO: TRUE: return cust, queueItem, msg, acctId
-        console.log(
-          "This is the result of existing queue item ",
-          existingQueueItem
-        );
+    const { acctSlug, queueId } = req.params;
+    const { customerName, customerNumber, VIP, pax } = req.body;
+    const account = await findAccountBySlug(acctSlug);
+    if (!account) {
+      return res.status(404).json({ message: "Error. Account not found" });
     }
 
-    //* FALSE: Is customer number in system for this account?
-    const customerExist = await findDuplicateCustomerByNumberAndAcctId({
-      number: customer.customerNumber,
-      accountId: account.id,
-    });
+    const dataToFindQueueItem = {
+      queueId: queueId,
+      contactNumber: customerNumber,
+    };
+    const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
+      dataToFindQueueItem
+    );
 
-    //* FALSE: create new customer and new queueItem.
-    if (customerExist.length === 0) {
-      const dataForNewCustomer = {
-        name: customer.customerName,
-        number: customer.customerNumber,
-        VIP: customer.VIP,
-        accountId: account.id,
-      };
-      const newCustomer = await createACustomer(dataForNewCustomer);
-      if (!newCustomer) {
-        return res
-          .status(400)
-          .json({ message: "Error creating a new customer!" });
-      }
+    const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
+      queueId
+    );
+    const newPosition = existingQueueItemsLength + 1;
 
-      const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
-        params.queueId
-      );
+    const activeExistingQueueItem = existingQueueItem.find(
+      (item) => item.active
+    );
 
+    if (activeExistingQueueItem) {
+      return res.status(200).json({
+        message: `Welcome Back, ${
+          activeExistingQueueItem.name || customerName
+        } . This is where you left off.`,
+        queueItem: activeExistingQueueItem,
+      });
+    }
+    if (VIP === false) {
       const dataForNewQueueItem = {
-        queueId: params.queueId,
-        customerId: newCustomer.id,
-        pax: parseInt(customer.pax),
-        position: existingQueueItemsLength + 1,
+        queueId: queueId,
+        pax: parseInt(pax),
+        name: customerName,
+        contactNumber: customerNumber,
+        position: newPosition,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
       if (!newQueueItem) {
         return res
           .status(400)
-          .json({ message: "Error creating a new queue item!" });
+          .json({ message: "Error creating a new queue item" });
       }
-
-      res.status(201).json({
-        message: `Welcome ${newCustomer.name}! You have entered the queue!`,
+      return res.status(201).json({
+        message: `Welcome ${newQueueItem.name}. You have entered the queue.`,
         queueItem: newQueueItem,
-        customer: newCustomer[0],
       });
     } else {
-      //for this queue only
-      //* TRUE: queueItem.active exist for this customer?
-      const dataForActiveQueueItem = {
-        queueId: params.queueId,
-        customerId: customerExist[0].id,
-      };
-      const queueItemActive = await findDupeActiveCustomerInQueueItem(
-        dataForActiveQueueItem
-      );
-
-      if (queueItemActive.length === 0 || queueItemActive[0] === undefined) {
-        //FALSE: create a new queue item. return existingCust, newQueueItem, acctId, msg
-        // return EXISTINGcust, newQueueItem, acctId, msg
-        const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
-          params.queueId
-        );
-
-        const dataForNewQueueItem = {
-          queueId: params.queueId,
-          customerId: customerExist[0].id,
-          pax: parseInt(customer.pax),
-          position: existingQueueItemsLength + 1,
+      let customerToLink = null;
+      const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
+        number: customerNumber,
+        accountId: account.id,
+      });
+      if (existingCustomer.length === 0) {
+        const dataForNewCustomer = {
+          name: customerName,
+          number: customerNumber,
+          VIP: VIP,
+          accountId: account.id,
         };
-        const newQueueItem = await createAQueueItem(dataForNewQueueItem);
-        if (!newQueueItem) {
+        customerToLink = await createACustomer(dataForNewCustomer);
+        if (!customerToLink) {
           return res
             .status(400)
-            .json({ message: "Error creating a new queue item!" });
+            .json({ message: "Error creating a new customer!" });
         }
-        console.log(
-          "Customer name when customer exist and enters a new queue: ",
-          customerExist
-        );
-        res.status(201).json({
-          message: `Welcome Back, ${customerExist[0].name}. You have entered a new queue.`,
-          queueItem: newQueueItem,
-          customer: customerExist[0],
-        });
+      } else if (existingCustomer.length === 1) {
+        customerToLink = existingCustomer[0];
       } else {
-        //TRUE: Is queueitem.active.queueId === params.queueId?
-        if (queueItemActive[0].queueId === params.queueId) {
-          //TRUE: return existingCust, queueItem, acctId, msg
-          res.status(201).json({
-            message: `Welcome Back, ${customerExist[0].name}. This is where you left off.`,
-            queueItem: queueItemActive[0],
-            customer: customerExist[0],
-          });
-        } else {
-          const prevQueueLocation = await findOutletByQueueId(
-            queueItemActive[0].queueId
-          );
-          console.log("Previous queue details, ", prevQueueLocation);
-          //FALSE: PROMPT CUSTOMER: Do you wish to leave your previous queue at queue.location?
-          res.status(406).json({
-            message: `Welcome Back, ${customerExist[0].name}. You were previously in queue at ${prevQueueLocation.outlet.name}.`,
-            previousQueueId: prevQueueLocation.id,
-            currentQueueId: params.queueId,
-            previousQueueItemId: queueItemActive[0].id,
-            customerId: queueItemActive[0].customerId,
-            previousOutlet: prevQueueLocation.outlet.name,
-          });
-        }
+        return res.status(500).json({
+          message:
+            "Database inconsistency. Multiple VIP customers with the same number found.",
+        });
       }
-    }
-  }),
-];
 
-exports.customer_form_repost = [
-  //validate body
-  param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").isInt().withMessage("Outlet id must be an int"),
-  param("queueId").notEmpty().withMessage("Queue must have an id"),
-  body("localStorageInfo")
-    .optional({ nullable: true })
-    .isObject()
-    .withMessage("localStorageInfo must be an object if provided"),
-  body("localStorageInfo.queueItemId")
-    .optional()
-    .isString()
-    .withMessage("queueItemId in localStorageInfo must be a string")
-    .isUUID()
-    .escape(),
-  body("localStorageInfo.queueId")
-    .optional()
-    .isString()
-    .withMessage("queue id in local storage info must be a string")
-    .escape(),
-  body("localStorageInfo.acctSlug")
-    .optional()
-    .isString()
-    .withMessage("acctSlug in local storage info must be a string")
-    .escape(),
-  //validate body data
-  body("pax", "Pax must be an integer").trim().isInt().escape(),
-  body("prevData.message").escape().trim(),
-  body("prevData.previousQueueId").escape().trim(),
-  body("prevData.currentQueueId").escape().trim(),
-  body("prevData.previousQueueItemId").escape().trim(),
-  body("prevData.customerId").escape().trim(),
-  body(
-    "remainInPreviousQueue",
-    "Remain in previous queue must be a boolean"
-  ).isBoolean(),
-  handleValidationResult,
-  asyncHandler(async (req, res, next) => {
-    const params = req.params;
-    const prevData = req.body.prevData;
-    console.log("What are the prev data after saying yes?", prevData);
-    //TRUE: update all queueItem to inactive. Create new queueItem. return existingCust, newQueueItem, acctId, msg
-    const remainInPrevQueue = req.body.remainInPreviousQueue;
-    if (remainInPrevQueue) {
-      const existingCustomer = await findCustomerByCustomerID(
-        prevData.customerId
-      );
-      const previousQueueItem = await findQueueItemByQueueItemId(
-        prevData.previousQueueItemId
-      );
-
-      const queueId = previousQueueItem.queueId;
-      const correctOutlet = await findOutletByQueueId(queueId);
-      console.log("correct outlet? ", correctOutlet.outlet);
-      res.status(201).json({
-        message: `Welcome Back, ${existingCustomer.name}. This is where you left off.`,
-        queueItem: previousQueueItem,
-        customer: existingCustomer,
-        outlet: correctOutlet.outlet,
-      });
-    }
-    //FALSE: return existingCust, existingQueueId, acctId, msg
-    if (!remainInPrevQueue) {
-      const existingCustomer = await findCustomerByCustomerID(
-        prevData.customerId
-      );
-      //update previous queue item to inactive
-      const dataToUpdateQueueItem = {
-        queueItemId: prevData.previousQueueItemId,
-        queueItemActive: false,
-        queueItemQuit: true,
-      };
-      const updatePrevQueueItem = await updateQueueItemByQueueItemId(
-        dataToUpdateQueueItem
-      );
-      const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
-        params.queueId
-      );
-      //create a new queue item
       const dataForNewQueueItem = {
-        queueId: prevData.currentQueueId,
-        customerId: prevData.customerId,
-        pax: parseInt(req.body.pax),
-        position: existingQueueItemsLength + 1,
+        queueId: queueId,
+        pax: parseInt(pax),
+        name: customerName,
+        contactNumber: customerNumber,
+        position: newPosition,
+        customerId: customerToLink.id,
       };
-      const newQueueItem = await createAQueueItem(dataForNewQueueItem);
-      res.status(201).json({
-        message: `Welcome Back, ${existingCustomer.name}. You've left your previous queue and entered a new queue.`,
+      const newQueueItem = await createAQueueItemVIP(dataForNewQueueItem);
+      if (!newQueueItem) {
+        return res
+          .status(400)
+          .json({ message: "Error creating a new queue item for VIP" });
+      }
+      return res.status(201).json({
+        message: `Welcome ${newQueueItem.name}. You have entered the queue.`,
         queueItem: newQueueItem,
-        customer: existingCustomer,
+        customer: customerToLink,
       });
     }
   }),
