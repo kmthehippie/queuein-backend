@@ -97,6 +97,7 @@ const getProcessedQueueData = async (queueId, socket) => {
       const customerPosition = actualQueueItem.position;
       const customerPax = actualQueueItem.pax;
       const customerCalled = actualQueueItem.called;
+      const customerCalledAt = actualQueueItem.calledAt;
 
       let queueItemsAheadOfCustomer = 0;
       if (customerPosition !== undefined) {
@@ -125,6 +126,7 @@ const getProcessedQueueData = async (queueId, socket) => {
         currentlyServing: currentlyServingPos,
         pax: customerPax,
         called: customerCalled,
+        calledAt: customerCalledAt,
         queueList: {
           type: queueListType,
           partiesAhead: queueItemsAheadOfCustomer,

@@ -58,12 +58,13 @@ const setupSocket = (server) => {
     });
 
     socket.on("set_staff_info", async (info) => {
-      console.log("Setting staff info!");
-      console.log(`Socket ${socket.id} has a staff info: ${info}`);
+      console.log(
+        `Socket ${socket.id} has a staff info: ${info.name} ${info.role}`
+      );
       //validate the host
       const staffValid = await checkStaffValidity(info);
       if (staffValid) {
-        console.log("Staff is valid ", staffValid);
+        console.log("Staff is valid ", staffValid.name, staffValid.role);
         socket.staff = info;
       }
     });
@@ -106,6 +107,11 @@ const setupSocket = (server) => {
           error: "Failed to refresh queue data",
         });
       }
+    });
+
+    socket.on("cust_update_host", async (queueId) => {
+      console.log("Trying to update the host from customer");
+      sendQueueUpdateForHost(io, `queue_${queueId}`);
     });
   });
   return io;

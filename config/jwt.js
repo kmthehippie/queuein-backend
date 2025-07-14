@@ -47,5 +47,4 @@ exports.authRefreshToken = (req, res, next) => {
     const newAccessToken = this.generateAccessToken({ id: account.id });
     res.json({ accessToken: newAccessToken });
   });
-  next();
 };

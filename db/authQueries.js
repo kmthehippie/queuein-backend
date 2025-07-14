@@ -214,6 +214,15 @@ exports.findOutletsByAcctId = async (data) => {
           companyName: true,
         },
       },
+      queues: {
+        where: {
+          active: true,
+        },
+        select: {
+          id: true,
+          active: true,
+        },
+      },
     },
   });
   return outlets;
@@ -248,6 +257,14 @@ exports.findActiveQueuesByOutletAndAccountId = async (data) => {
       outletId: data.outletId,
       active: true,
     },
+    select: {
+      id: true,
+      name: true,
+      active: true,
+    },
+    orderBy: {
+      startTime: "desc",
+    },
   });
   return activeQueue;
 };
@@ -262,70 +279,77 @@ exports.findOutletByIdAndAccountId = async (data) => {
   return outlet;
 };
 
-exports.findActiveQueueByOutletId = async (data) => {
-  const queue = await prisma.queue.findMany({
-    where: {
-      accountId: data.accountId,
-      outletId: data.outletId,
-    },
-  });
-  console.log("Queue exist? ", queue);
-  return queue;
-};
-
-exports.findRelevantQueueForOutlet = async (data) => {
-  // 1. Try to find an active queue first
-  let activeQueue = await prisma.queue.findFirst({
-    where: {
-      accountId: data.accountId,
-      outletId: data.outletId,
-      active: true,
-    },
-    select: {
-      id: true,
-    },
-    orderBy: {
-      startTime: "desc",
-    },
-  });
-
-  if (activeQueue) {
-    return activeQueue;
-  }
-  const potentialInactiveQueue = await prisma.queue.findFirst({
+exports.findRecentlyInactiveQueue = async (data) => {
+  const queue = await prisma.queue.findFirst({
     where: {
       accountId: data.accountId,
       outletId: data.outletId,
       active: false,
       endTime: {
-        gte: fortyEightHoursAgo,
-        lt: now,
+        gte: data.fortyEightHoursAgo,
+        lt: data.now,
       },
     },
     select: {
       id: true,
+      name: true,
+      active: true,
     },
     orderBy: {
       startTime: "desc",
     },
   });
-  if (potentialInactiveQueue) {
-    const activeQueueItemCount = await prisma.queueItem.count({
-      where: {
-        queueId: potentialInactiveQueue.id,
-        active: true,
-        seated: false,
-        quit: false,
-      },
-    });
-    if (activeQueueItemCount > 0) {
-      return potentialInactiveQueue;
-    }
-  }
-
-  return null;
+  return queue;
 };
 
+exports.countActiveQueueItemsByQueueId = async (data) => {
+  const queueItemsCount = await prisma.queueItem.count({
+    where: {
+      queueId: data.queueId,
+      active: true,
+      seated: false,
+      quit: false,
+      noShow: false,
+    },
+  });
+  return queueItemsCount;
+};
+
+exports.findLatestInactiveQueueStats = async (data) => {
+  const queues = await prisma.queue.findMany({
+    where: {
+      accountId: data.accountId,
+      outletId: data.outletId,
+      active: false,
+    },
+    orderBy: {
+      endTime: "desc",
+    },
+    take: data.limit,
+    skip: data.skip,
+    include: {
+      queueItems: {
+        select: {
+          active: true,
+          seated: true,
+          quit: true,
+          noShow: true,
+        },
+      },
+    },
+  });
+  return queues;
+};
+
+exports.countInactiveQueues = async ({ accountId, outletId }) => {
+  return await prisma.queue.count({
+    where: {
+      accountId: accountId,
+      outletId: outletId,
+      active: false,
+    },
+  });
+};
 exports.createACustomer = async (data) => {
   const customer = await prisma.customer.create({
     data: {
@@ -380,7 +404,6 @@ exports.createAQueueItem = async (data) => {
 };
 
 exports.findExistingSlug = async (slug) => {
-  console.log("Finding exisitng slug :", slug);
   const existingSlug = await prisma.account.findUnique({
     where: { slug: slug },
   });
@@ -388,11 +411,9 @@ exports.findExistingSlug = async (slug) => {
 };
 
 exports.findAccountBySlug = async (slug) => {
-  console.log("Finding account by slug, ", slug);
   const account = await prisma.account.findUnique({
     where: { slug: slug },
   });
-  console.log("Found account using slug: ", account);
   if (account) {
     return {
       id: account.id,
@@ -413,6 +434,7 @@ exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
       accountId: data.accountId,
     },
   });
+  console.log("Customer: ", customer);
   return customer;
 };
 
@@ -474,6 +496,20 @@ exports.findQueueItemsLengthByQueueId = async (queueId) => {
     },
   });
   console.log(queueId, " has ", queueItemsCount);
+  if (queueItemsCount === null) {
+    return parseInt(0);
+  }
+  return parseInt(queueItemsCount);
+};
+
+exports.findActiveQueueItemsLengthByQueueId = async (queueId) => {
+  const queueItemsCount = await prisma.queueItem.count({
+    where: {
+      queueId: queueId,
+      active: true,
+    },
+  });
+  console.log(queueId, " has active queue items: ", queueItemsCount);
   if (queueItemsCount === null) {
     return parseInt(0);
   }
@@ -583,59 +619,39 @@ exports.updateOutletByOutletAndAcctId = async (data) => {
   return updatedOutlet;
 };
 
-exports.updateSeatQueueItem = async (data) => {
+exports.updateQueueItem = async ({
+  queueItemId,
+  prevVersion,
+  dataToUpdate,
+}) => {
   const updateSeated = await prisma.queueItem.update({
     where: {
-      id: data.queueItemId,
+      id: queueItemId,
+      version: prevVersion,
     },
     data: {
-      seated: data.seated,
-      active: data.active,
+      ...dataToUpdate,
+      version: { increment: 1 },
     },
   });
-  console.log("Update the seated queue item ", updateSeated);
-  return updateSeated;
-};
-exports.updateSeatQueueItemNull = async (data) => {
-  const updateSeated = await prisma.queueItem.update({
-    where: {
-      id: data.queueItemId,
-      inactiveAt: null,
-    },
-    data: {
-      seated: data.seated,
-      active: data.active,
-      inactiveAt: new Date(),
-    },
-  });
-  console.log("Update the seated queue item ", updateSeated);
+  console.log("Update the queue item ", updateSeated);
   return updateSeated;
 };
 
-exports.updateCallQueueItem = async (data) => {
+exports.updateCallQueueItem = async ({
+  queueItemId,
+  prevVersion,
+  dataToUpdate,
+}) => {
   const updateCalled = await prisma.queueItem.update({
     where: {
-      id: data.queueItemId,
+      id: queueItemId,
+      version: prevVersion,
     },
-    data: {
-      called: data.called,
-    },
+    data: dataToUpdate,
   });
+  console.log("This is the updated called queue item : ", updateCalled);
   return updateCalled;
-};
-
-exports.updateCallQueueItemNull = async (data) => {
-  const updateNullCalled = await prisma.queueItem.update({
-    where: {
-      id: data.queueItemId,
-      calledAt: null,
-    },
-    data: {
-      called: data.called,
-      calledAt: new Date(),
-    },
-  });
-  return updateNullCalled;
 };
 
 exports.findAllStaffByAcctId = async (data) => {
@@ -725,7 +741,7 @@ exports.endQueueByQueueId = async (data) => {
     },
     data: {
       active: false,
-      endTime: Date.now(),
+      endTime: new Date(),
     },
   });
   console.log(`${data.queueId} queue has ended. It is no longer active`);

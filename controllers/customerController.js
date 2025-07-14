@@ -12,13 +12,13 @@ const {
   findOutletsByAcctId,
   findActiveQueuesByOutletAndAccountId,
   findOutletByIdAndAccountId,
-  findActiveQueueByOutletId,
   findAccountBySlug,
   createACustomer,
   createAQueueItem,
   findDuplicateCustomerByNumberAndAcctId,
   findOutletByQueueId,
   findQueueItemsLengthByQueueId,
+  findActiveQueueItemsLengthByQueueId,
   findQueueItemByQueueItemId,
   updateQueueItemByQueueItemId,
   updatePaxByQueueItemId,
@@ -123,10 +123,12 @@ exports.outlet_landing_page = [
       logo: account.logo,
       slug: account.slug,
     };
+
     const outletById = {
       id: outletId,
       accountId: account.id,
     };
+
     const outlet = await findOutletByIdAndAccountId(outletById);
     if (!outlet) {
       return res.status(404).json({ message: "Outlet does not exist." });
@@ -136,9 +138,9 @@ exports.outlet_landing_page = [
       outletId: outlet.id,
     };
 
-    const queue = await findActiveQueueByOutletId(infoToFindQueue);
+    const queue = await findActiveQueuesByOutletAndAccountId(infoToFindQueue);
     console.log("Does queue exist?", queue);
-    if (queue.length === 0) {
+    if (queue.length === 0 || queue.active === false) {
       return res.status(200).json({
         accountInfo,
         outlet,
@@ -147,7 +149,7 @@ exports.outlet_landing_page = [
 
     console.log("Is this the queueId: ", queue[0].id);
     const queueId = queue[0].id;
-    const queueItemsLength = await findQueueItemsLengthByQueueId(queueId);
+    const queueItemsLength = await findActiveQueueItemsLengthByQueueId(queueId);
 
     if (queueItemsLength === 0) {
       return res.status(200).json({
@@ -320,11 +322,10 @@ exports.customer_quit_queue_post = [
   param("queueItemId").notEmpty().withMessage("Queue Item must have an id"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log(req.params);
     const params = req.params;
 
     const queueItem = await findQueueItemByQueueItemId(params.queueItemId);
-    console.log("Customer trying to leave queue", queueItem);
+    console.log("Customer trying to quit the queue", queueItem);
 
     const data = {
       queueItemId: params.queueItemId,

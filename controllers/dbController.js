@@ -16,7 +16,7 @@ const {
   createACustomer,
   findOutletByQueueId,
   findDupeActiveCustomerInQueueItem,
-  updateSeatQueueItem,
+  updateQueueItem,
   updateCallQueueItem,
   findAllStaffByAcctId,
   createStaff,
@@ -34,8 +34,14 @@ const {
   findQueueItemByContactNumberAndQueueId,
   createAQueueItemVIP,
   findQueueItemsByQueueId,
-  updateSeatQueueItemNull,
+  findQueueByQueueId,
+  findActiveQueueByOutletId,
+  findRecentlyInactiveQueue,
+  countActiveQueueItemsByQueueId,
+  findLatestInactiveQueueStats,
+  updateQueueItemByQueueItemId,
 } = require("../db/authQueries");
+const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
 const e = require("express");
 const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
@@ -72,7 +78,6 @@ exports.all_outlets_get = [
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
     const outlets = await findOutletsByAcctId(accountId);
-    console.log("Here are all outlets data", outlets);
     if (!outlets) {
       return res
         .status(404)
@@ -253,8 +258,6 @@ exports.queue_activity_get = [
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Inside active queue get");
-    console.log(req.params);
     const data = {
       accountId: req.params.accountId,
       outletId: parseInt(req.params.outletId),
@@ -263,18 +266,77 @@ exports.queue_activity_get = [
       accountId: req.params.accountId,
       id: parseInt(req.params.outletId),
     });
+
     if (!outlet) {
       return res.status(404).json({ message: "Error, outlet not found" });
     }
-    const queue = await findRelevantQueueForOutlet(data);
 
-    if (queue !== null) {
-      return res.status(200).json({ queue, outlet });
+    const activeQueue = await findActiveQueuesByOutletAndAccountId(data);
+
+    let relevantQueue = null;
+
+    if (activeQueue.length > 0) {
+      relevantQueue = activeQueue[0];
+      console.log("Relevant queue is the activeQueue", relevantQueue);
     } else {
-      return res
-        .status(404)
-        .json({ message: "No active queues. No active queue items." });
+      const now = new Date();
+      const fortyEightHoursInMilliseconds = 48 * 60 * 60 * 1000;
+      const fortyEightHoursAgo = new Date(
+        now.getTime() - fortyEightHoursInMilliseconds
+      );
+
+      //Queue is inactive but is a recent queue
+      const potentialInactiveQueue = await findRecentlyInactiveQueue({
+        ...data,
+        fortyEightHoursAgo,
+        now,
+      });
+
+      if (potentialInactiveQueue) {
+        const activeQueueItemCount = await countActiveQueueItemsByQueueId(
+          potentialInactiveQueue.id
+        );
+
+        if (activeQueueItemCount > 0) {
+          relevantQueue = potentialInactiveQueue[0];
+          console.log(
+            "This is the relevant queue when queue is inactive: ",
+            relevantQueue
+          );
+        }
+      }
     }
+
+    if (relevantQueue) {
+      console.log("Returning status 200 and queue: ", relevantQueue);
+      return res.status(200).json({ outlet: outlet, queue: relevantQueue });
+    } else {
+      return res.status(200).json({ outlet: outlet, queue: null });
+    }
+  }),
+];
+
+exports.inactive_queues_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { accountId, outletId } = req.params;
+    const parsedOutletId = parseInt(outletId);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = 5;
+    const skip = (page - 1) * limit;
+
+    // Call the service layer, which handles both data retrieval and transformation
+    const result = await getInactiveQueueStatsPaginated({
+      accountId,
+      outletId: parsedOutletId,
+      limit,
+      skip,
+    });
+
+    return res.status(200).json(result); // The service returns the full object
   }),
 ];
 
@@ -385,7 +447,10 @@ exports.new_customer_post = [
       if (customerName === activeExistingQueueItem.name) {
         const updatedQueueItems = await getUpdatedQueueItems(queueId);
         console.log("Updated queue items: ", updatedQueueItems);
+
         if (io) {
+          //! HERE ISSUE
+          await sendQueueUpdateForHost(io, `queue_${queueId}`);
           io.to(`queue_${queueId}`).emit(
             "host_queue_update",
             updatedQueueItems
@@ -422,6 +487,7 @@ exports.new_customer_post = [
         number: customerNumber,
         accountId: accountId,
       });
+
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
           name: customerName,
@@ -478,84 +544,106 @@ exports.seat_queue_item_patch = [
   asyncHandler(async (req, res, next) => {
     const { queueItemId } = req.params;
     const { seated } = req.body;
-    const dataToUpdate = {
-      queueItemId: queueItemId,
-      seated: seated,
-      active: false,
-    };
 
-    const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
-    let updatedSeated = null;
-    try {
-      if (existingQueueItem.inactiveAt === null && seated) {
-        updatedSeated = await updateSeatQueueItemNull(dataToUpdate);
-      } else {
-        updatedSeated = await updateSeatQueueItem(dataToUpdate);
+    const queueItem = await findQueueItemByQueueItemId(queueItemId);
+
+    const prevVersion = queueItem.version;
+    if (!queueItem) {
+      return res.status(404).json({ message: "Error, queue item not found" });
+    }
+    let dataToUpdate;
+
+    if (seated) {
+      if (queueItem.quit) {
+        return res.status(400).json({
+          message: "Cannot seat a customer that has already quit the queue.",
+        });
       }
+      if (queueItem.noShow) {
+        return res.status(400).json({
+          message:
+            "Cannot seat a customer that has already been marked no show. Please undo no show before seating this customer.",
+        });
+      }
+      if (queueItem.seatedAt === null) {
+        dataToUpdate = {
+          seated: true,
+          active: false,
+          inactiveAt: new Date(),
+          seatedAt: new Date(),
+        };
+      } else {
+        dataToUpdate = {
+          seated: true,
+          active: false,
+          inactiveAt: new Date(),
+        };
+      }
+    } else if (!seated) {
+      dataToUpdate = {
+        seated: false,
+        active: true,
+        inactiveAt: null,
+      };
+    }
+    console.log(
+      "This is the data to update when handling seated: ",
+      dataToUpdate
+    );
+    let updatedQueueItem;
+    try {
+      updatedQueueItem = await updateQueueItem({
+        queueItemId,
+        prevVersion,
+        dataToUpdate,
+      });
     } catch (error) {
+      console.error("There was an error updating queue item! ", error);
       if (
         error instanceof PrismaClientKnownRequestError &&
         error.code === "P2025"
       ) {
         console.warn(
-          "Race condition. 2 hosts are triggering seated at the same time"
+          "Race condition. 2 hosts are triggering seated at same time."
         );
-        try {
-          const checkExistingQueueItem = await findQueueItemByQueueItemId(
-            queueItemId
-          );
-          if (!checkExistingQueueItem) {
-            return res.status(404).json({
-              message:
-                "Existing queue item not found and race condition happened.",
-            });
-          }
-          if (checkExistingQueueItem.inactiveAt === null) {
-            updateCalled = await updateCallQueueItemNull(dataToUpdate);
-          } else {
-            updateCalled = await updateCallQueueItem(dataToUpdate);
-          }
-        } catch (fallbackErr) {
-          console.warn("Something went wrong");
-          return res
-            .status(500)
-            .json({ message: "Failure to update customer's seated status" });
-        }
-      } else {
-        return res
-          .status(500)
-          .json({ message: "Failure to update customer's seated status" });
+        return res.status(409).json({
+          message:
+            "This item has been updated by another host. Please refresh your page.",
+        });
       }
+      return res.status(500).json({
+        message: `Database error: ${
+          error.message || "Unexpected database error"
+        }`,
+      });
     }
 
-    if (!existingQueueItem) {
-      return res
-        .status(404)
-        .json({ message: "Error updating queue item. Not found." });
+    const io = req.app.get("io");
+    if (updatedQueueItem.queueId) {
+      await sendQueueUpdateForHost(io, `queue_${updatedQueueItem.queueId}`);
     }
-    const queueId = updatedSeated.queueId;
-    const position = updatedSeated.position;
-
-    if (updatedSeated !== null) {
-      const io = req.app.get("io");
-      if (queueId) {
-        await sendQueueUpdateForHost(io, `queue_${queueId}`);
-      }
-      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+    if (seated) {
+      io.to(`queueitem_${queueItemId}`).emit("host_seated_cust", {
         alert: true,
         queueItemId: queueItemId,
-        position: position,
-        message: "You have been seated! Please enjoy your meal!",
+        position: queueItem.position,
+        action: "seated",
+        message: "You have been seated! Enjoy your meal!",
       });
-      res
-        .status(201)
-        .json(
-          { message: "Successfully updated seat of customer" },
-          updatedSeated
-        );
     } else {
-      res.status(404).json({ message: "Error updating seating of customer" });
+      io.to(`queueitem_${queueItemId}`).emit("host_seated_cust", {
+        alert: false,
+        queueItemId: queueItemId,
+        position: queueItem.position,
+        action: "seated",
+        message: "You have NOT been seated! Updating your waiting page.",
+      });
     }
+
+    res.status(201).json({
+      message: "Queue item has been successfully updated",
+      updatedQueueItem,
+    });
   }),
 ];
 
@@ -570,19 +658,37 @@ exports.call_queue_item_patch = [
   asyncHandler(async (req, res, next) => {
     const queueItemId = req.params.queueItemId;
     const calledStatus = req.body.called;
-    const dataToUpdate = {
-      queueItemId: queueItemId,
-      called: calledStatus,
-    };
 
-    const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
     let updateCalled = null;
+
     try {
-      if (existingQueueItem.calledAt === null && calledStatus) {
-        updateCalled = await updateCallQueueItemNull(dataToUpdate);
-      } else {
-        updateCalled = await updateCallQueueItem(dataToUpdate);
+      const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
+      if (!existingQueueItem) {
+        return res
+          .status(404)
+          .json({ message: "Error updating queue item. Not Found." });
       }
+
+      const prevVersion = existingQueueItem.version;
+
+      const dataToUpdate = {
+        called: calledStatus,
+      };
+
+      if (existingQueueItem.calledAt === null && calledStatus) {
+        dataToUpdate.calledAt = new Date();
+      }
+
+      console.log(
+        "This is the data to update when trying to call: ",
+        dataToUpdate
+      );
+
+      updateCalled = await updateCallQueueItem({
+        queueItemId,
+        prevVersion,
+        dataToUpdate,
+      });
     } catch (error) {
       if (
         error instanceof PrismaClientKnownRequestError &&
@@ -591,45 +697,27 @@ exports.call_queue_item_patch = [
         console.warn(
           "Race condition. 2 hosts are triggering called at same time."
         );
-        try {
-          const checkExistingQueueItem = await findQueueItemByQueueItemId(
-            queueItemId
-          );
-          if (!checkExistingQueueItem) {
-            return res.status(404).json({
-              message:
-                "Existing queue item not found and race condition happened.",
-            });
-          }
-          if (checkExistingQueueItem.calledAt === null) {
-            updateCalled = await updateCallQueueItemNull(dataToUpdate);
-          } else {
-            updateCalled = await updateCallQueueItem(dataToUpdate);
-          }
-        } catch (fallbackErr) {
-          console.warn("Something went wrong");
-          return res
-            .status(500)
-            .json({ message: "Failure to update customer's call status" });
-        }
-      } else {
-        return res
-          .status(500)
-          .json({ message: "Failure to update customer's call status" });
+        return res.status(409).json({
+          message:
+            "This item has been updated by another host. Please refresh your page.",
+        });
       }
+      return res.status(500).json({
+        message: `Database error: ${
+          error.message || "Unexpected database error"
+        }`,
+      });
+    }
+
+    if (!updateCalled) {
+      return res.status(500).json({ message: "Failed to update item." });
     }
 
     const queueId = updateCalled.queueId;
     const position = updateCalled.position;
 
-    if (!existingQueueItem) {
-      return res
-        .status(404)
-        .json({ message: "Error updating queue item. Not Found." });
-    }
-
+    const io = req.app.get("io");
     if (calledStatus) {
-      const io = req.app.get("io");
       if (queueId) {
         await sendQueueUpdateForHost(io, `queue_${queueId}`);
       }
@@ -637,13 +725,144 @@ exports.call_queue_item_patch = [
         alert: true,
         queueItemId: queueItemId,
         position: position,
+        action: "called",
         message: "It's your turn!",
+        calledAt: updateCalled.calledAt,
+      });
+    } else {
+      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+        alert: false,
+        queueItemId: queueItemId,
+        position: position,
+        action: "called",
+        message: "Sorry, it's NOT your turn!",
+        calledAt: updateCalled.calledAt || null,
       });
     }
     res.status(201).json(updateCalled);
 
     //Notes:
     //We pull the socket into the controller here because we want to ensure that there is only ONE source of truth and prevent race conditions. If we put the emit separate from here (meaning use the socket), we will likely run in to bugs.
+  }),
+];
+
+exports.no_show_queue_item_patch = [
+  param("queueItemId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Queue item ID cannot be empty"),
+  body("noShow").isBoolean().withMessage("No show must be a boolean"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { queueItemId } = req.params;
+    const { noShow } = req.body;
+
+    const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
+
+    const prevVersion = existingQueueItem.version;
+
+    if (!existingQueueItem) {
+      return res.status(404).json({ message: "Queue Item is not found" });
+    }
+
+    let dataToUpdate;
+
+    if (noShow) {
+      if (existingQueueItem.quit) {
+        return res.status(400).json({
+          message: "Cannot seat a customer that has already quit the queue.",
+        });
+      }
+      if (existingQueueItem.seated) {
+        return res.status(400).json({
+          message: "Cannot seat a customer that has already been seated",
+        });
+      }
+
+      if (existingQueueItem.noShowAt === null) {
+        dataToUpdate = {
+          noShow: true,
+          active: false,
+          inactiveAt: new Date(),
+          noShowAt: new Date(),
+        };
+      } else {
+        dataToUpdate = {
+          noShow: true,
+          active: false,
+          inactiveAt: new Date(),
+        };
+      }
+    } else {
+      dataToUpdate = {
+        noShow: false,
+        active: true,
+        inactiveAt: null,
+      };
+    }
+    console.log(
+      "This is the data to update while handling no show: ",
+      dataToUpdate
+    );
+    let updatedQueueItem;
+
+    try {
+      updatedQueueItem = await updateQueueItem({
+        queueItemId,
+        prevVersion,
+        dataToUpdate,
+      });
+      console.log("Trying to update queue item (no show) : ", updatedQueueItem);
+    } catch (error) {
+      console.error("There was an error updating queue item! ", error);
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        console.warn(
+          "Race condition. 2 hosts are triggering no show at same time."
+        );
+        return res.status(409).json({
+          message:
+            "This item has been updated by another host. Please refresh your page.",
+        });
+      }
+      return res.status(500).json({
+        message: `Database error: ${
+          error.message || "Unexpected database error"
+        }`,
+      });
+    }
+
+    const io = req.app.get("io");
+    if (updatedQueueItem.queueId) {
+      await sendQueueUpdateForHost(io, `queue_${updatedQueueItem.queueId}`);
+    }
+    if (noShow) {
+      io.to(`queueitem_${queueItemId}`).emit("host_noShow_cust", {
+        alert: true,
+        queueItemId: queueItemId,
+        position: null,
+        action: "noShow",
+        message:
+          "You have been marked as no show. If you are still at the store, please go to the host immediately to rectify the situation.",
+      });
+    } else {
+      io.to(`queueitem_${queueItemId}`).emit("host_noShow_cust", {
+        alert: false,
+        queueItemId: queueItemId,
+        position: null,
+        action: "noShow",
+        message:
+          "We have reverted your no show status. Please wait for your turn.",
+      });
+    }
+
+    res.status(201).json({
+      message: "Queue item has been successfully updated",
+      updatedQueueItem,
+    });
   }),
 ];
 

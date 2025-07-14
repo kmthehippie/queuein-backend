@@ -74,6 +74,10 @@ router.get(
   dbController.queue_activity_get
 );
 router.get("/activeQueue/:queueId", dbController.active_queue_get);
+router.get(
+  "/inactiveQueues/:accountId/:outletId",
+  dbController.inactive_queues_get
+);
 router.post("/newQueue/:accountId/:outletId", dbController.new_queue_post);
 router.post(
   "/endQueue/:accountId/:outletId/:queueId",
@@ -84,6 +88,10 @@ router.post(
 router.post("/newCustomer/:queueId", dbController.new_customer_post);
 router.patch("/seatQueueItem/:queueItemId", dbController.seat_queue_item_patch);
 router.patch("/callQueueItem/:queueItemId", dbController.call_queue_item_patch);
+router.patch(
+  "/noShowQueueItem/:queueItemId",
+  dbController.no_show_queue_item_patch
+);
 
 //STAFF RELATED ROUTES
 router.get("/staffList/:accountId", dbController.staff_list_get);

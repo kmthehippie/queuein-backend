@@ -7,16 +7,16 @@ const { setAuthCookies } = require("../middleware/setAuthCookies");
 const slugify = require("../config/slugify");
 
 const {
+  deleteAllOAuthToken,
+  deleteOAuthTokenByRefreshToken,
+  findOAuthTokenByOID,
+  deleteOAuthTokenByOID,
   getAccountEmail,
   createAccount,
   createStaff,
   createOAuthToken,
   updateOAuthToken,
   findOAuthTokenByAccountIdAndUserAgent,
-  deleteAllOAuthToken,
-  deleteOAuthTokenByRefreshToken,
-  findOAuthTokenByOID,
-  deleteOAuthTokenByOID,
   findExistingSlug,
 } = require("../db/authQueries");
 
