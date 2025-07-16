@@ -95,9 +95,6 @@ exports.landing_page = [
       }
       outletsWithQueue.push({ ...outlet, queues });
     }
-
-    console.log("Finding account landing page:", accountInfo, outletsWithQueue);
-
     res.status(200).json({ accountInfo, outletsWithQueue });
   }),
 ];

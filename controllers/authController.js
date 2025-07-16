@@ -59,7 +59,7 @@ exports.normal_login = [
     const userAgent = req.get("User-Agent");
 
     const accountExist = await getAccountEmail(email);
-    console.log("Account exist? ", accountExist);
+    console.log("Account exist? ", accountExist.companyName);
     if (!accountExist) return sendInvalidCredentialsError(res);
     if (!(await passwordUtils.validatePw(accountExist.password, password)))
       return sendInvalidCredentialsError(res);
@@ -73,12 +73,11 @@ exports.normal_login = [
           accountExist.id,
           userAgent
         );
-        console.log(
-          "Remember device and is there an existing oauth token?: ",
-          !!existingOAuthToken
-        );
         if (existingOAuthToken) {
-          console.log(existingOAuthToken);
+          console.log(
+            "Device already remembered, update tokens ",
+            existingOAuthToken.id
+          );
           // Device already remembered, update tokens
           await updateOAuthToken({
             id: existingOAuthToken.id,
@@ -88,9 +87,10 @@ exports.normal_login = [
           });
           setAuthCookies(req, res, next, refreshToken, existingOAuthToken.id);
         } else {
-          // New device, create a new token
-          console.log("Account exist in else? ", accountExist);
-
+          console.log(
+            "New device, create a new token ",
+            accountExist.companyName
+          );
           const newOAuthToken = await createOAuthToken({
             provider: "LOCAL",
             accessToken,
@@ -123,7 +123,7 @@ exports.normal_register_form_post = [
     .withMessage("User-Agent header is required")
     .isString()
     .withMessage("User-Agent must be a string")
-    .isLength({ min: 5, max: 255 }) // Example length constraints
+    .isLength({ min: 5, max: 255 })
     .withMessage("User-Agent must be between 5 and 255 characters")
     .matches(/Mozilla\/\d+\.\d+/, "i"),
   // Validate accountInfo
@@ -183,9 +183,7 @@ exports.normal_register_form_post = [
     }
 
     try {
-      console.log(accountPassword, ownerPassword);
       let slug = slugify.slugify(companyName);
-      console.log("Slug :", slug);
       let isSlugUnique = false;
       let counter = 1;
       while (!isSlugUnique) {
@@ -211,7 +209,6 @@ exports.normal_register_form_post = [
       }
 
       const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
-      console.log("Owner's password is hashed ", hashedOwnerPassword);
       const newOwner = await createStaff({
         name: ownerName,
         role: "OWNER",

@@ -1,8 +1,8 @@
 const jwt = require("jsonwebtoken");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-const accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY;
-const refreshTokenExpiry = process.env.REFRESH_TOKEN_EXPIRY;
+const accessTokenExpiry = parseInt(process.env.ACCESS_TOKEN_EXPIRY);
+const refreshTokenExpiry = parseInt(process.env.REFRESH_TOKEN_EXPIRY);
 
 exports.generateAccessToken = (account) => {
   return jwt.sign(
@@ -33,7 +33,7 @@ exports.authAccessToken = (req, res, next) => {
       return res.status(403).json({ message: "Invalid Access Token" });
     }
     req.account = account;
-    next(); // Only call next() if the access token is valid
+    next();
   });
 };
 
@@ -46,5 +46,21 @@ exports.authRefreshToken = (req, res, next) => {
     if (err) return res.status(403).json({ message: "Invalid Refresh Token" });
     const newAccessToken = this.generateAccessToken({ id: account.id });
     res.json({ accessToken: newAccessToken });
+  });
+};
+
+exports.refreshTokenDecoded = (req, res, next) => {
+  const refreshToken = req.cookies.jwt;
+  if (!refreshToken) {
+    return res.status(401).json({ message: "Refresh Token Required" });
+  }
+
+  jwt.verify(refreshToken, refreshTokenSecret, (err, decoded) => {
+    if (err) {
+      console.error("Error verifying refresh token in middleware:", err);
+      return res.status(403).json({ message: "Invalid Refresh Token" });
+    }
+    req.decodedRefreshToken = decoded;
+    next();
   });
 };
