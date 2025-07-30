@@ -77,6 +77,7 @@ exports.all_outlets_get = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
+    console.log("all outlets get in dbcontroller account id: ", accountId);
     const outlets = await findOutletsByAcctId(accountId);
     if (!outlets) {
       return res

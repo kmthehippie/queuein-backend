@@ -268,6 +268,10 @@ exports.customer_form_post = [
         number: customerNumber,
         accountId: account.id,
       });
+      console.log(
+        "Is there a customer existing when join queue? ",
+        existingCustomer
+      );
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
           name: customerName,
@@ -276,6 +280,7 @@ exports.customer_form_post = [
           accountId: account.id,
         };
         customerToLink = await createACustomer(dataForNewCustomer);
+        console.log("Created a new customer when join queue: ", customerToLink);
         if (!customerToLink) {
           return res
             .status(400)
@@ -333,7 +338,7 @@ exports.customer_quit_queue_post = [
     console.log("Updated queue items: ", updateQueueItem);
     if (updateQueueItem) {
       res.status(201).json({
-        message: `${queueItem.customer.name}, you have successfully left your queue. See you again soon!`,
+        message: `${updateQueueItem.name}, you have successfully left your queue. See you again soon!`,
       });
     } else {
       res.status(400).json({
@@ -355,7 +360,7 @@ exports.customer_update_pax_post = [
   asyncHandler(async (req, res, next) => {
     const params = req.params;
     const pax = req.body.pax;
-    console.log("We are in controllers: ", pax, params);
+    console.log("We are in customer update pax controller: ", pax, params);
     //we need to update the queue item pax
     const dataForUpdate = {
       pax: pax,

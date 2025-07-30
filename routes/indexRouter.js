@@ -50,6 +50,7 @@ router.post("/customerVerifyLS", customerController.check_local_storage);
 //* ACCOUNT ROUTES *//
 router.post("/login", authController.normal_login);
 router.post("/register", authController.normal_register_form_post);
+router.post("/logout", authController.normal_logout);
 router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
   res.send("Hey we got past the protected routes!");
 });

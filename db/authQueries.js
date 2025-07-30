@@ -775,3 +775,15 @@ exports.findQueueItemByContactNumberAndQueueId = async (data) => {
 
   return queueItem;
 };
+
+exports.deleteOAuthTokenByOID = async (oid) => {
+  return prisma.oAuthToken.delete({
+    where: { id: oid },
+  });
+};
+
+exports.deleteOAuthTokenByRefreshToken = async (refreshToken) => {
+  return prisma.oAuthToken.delete({
+    where: { refreshToken: refreshToken },
+  });
+};

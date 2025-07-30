@@ -46,6 +46,11 @@ const getProcessedQueueData = async (queueId, socket) => {
     if (!!queueId) {
       const actualQueueId = queueId.slice(6);
       const queueItemId = socket.queueItemId;
+      console.log(
+        "This is the queue id and queue item id : ",
+        actualQueueId,
+        queueItemId
+      );
 
       //Find all queueItems position in an array.
       const queue = await findAllQueueItemsByQueueId(actualQueueId);
