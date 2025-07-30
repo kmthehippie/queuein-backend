@@ -5,6 +5,9 @@ const accessTokenExpiry = parseInt(process.env.ACCESS_TOKEN_EXPIRY);
 const refreshTokenExpiry = parseInt(process.env.REFRESH_TOKEN_EXPIRY);
 
 exports.generateAccessToken = (account) => {
+  console.log(
+    `Generated access token for ${account.companyName} which expires in ${accessTokenExpiry}`
+  );
   return jwt.sign(
     { id: account.id, companyName: account.companyName },
     accessTokenSecret,
@@ -15,6 +18,9 @@ exports.generateAccessToken = (account) => {
 };
 
 exports.generateRefreshToken = (account) => {
+  console.log(
+    `Generated refresh token for ${account.companyName} which expires in ${refreshTokenExpiry}`
+  );
   return jwt.sign(
     { id: account.id, companyName: account.companyName },
     refreshTokenSecret,
@@ -28,24 +34,14 @@ exports.authAccessToken = (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: "Access Token Required" });
   }
+
   jwt.verify(token, accessTokenSecret, (err, account) => {
     if (err) {
       return res.status(403).json({ message: "Invalid Access Token" });
     }
     req.account = account;
+    console.log(`Verifying access token for the account ${req.account}`);
     next();
-  });
-};
-
-exports.authRefreshToken = (req, res, next) => {
-  const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) {
-    return res.status(401).json({ message: "Refresh Token Required" });
-  }
-  jwt.verify(refreshToken, refreshTokenSecret, (err, account) => {
-    if (err) return res.status(403).json({ message: "Invalid Refresh Token" });
-    const newAccessToken = this.generateAccessToken({ id: account.id });
-    res.json({ accessToken: newAccessToken });
   });
 };
 

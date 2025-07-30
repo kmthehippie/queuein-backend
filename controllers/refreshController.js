@@ -10,13 +10,9 @@ const { generateAccessToken, refreshTokenDecoded } = require("../config/jwt");
 exports.handle_refresh_token = [
   refreshTokenDecoded,
   asyncHandler(async (req, res, next) => {
-    // If we reach here, the refresh token has already been verified by authRefreshToken
-    // The decoded payload is now in req.decodedRefreshToken
-    const refreshToken = req.cookies.jwt; // Still need the actual token string for DB lookup
+    const refreshToken = req.cookies.jwt;
     const oid = req.cookies.oid;
-    const decoded = req.decodedRefreshToken; // Get decoded payload from middleware
-
-    // Log the expiry details if you still want to
+    const decoded = req.decodedRefreshToken;
     if (decoded && decoded.exp) {
       const time = Math.floor(Date.now() / 1000);
       console.log(
@@ -27,8 +23,7 @@ exports.handle_refresh_token = [
 
     const OAuthToken = await findOAuthTokenByRefreshToken(refreshToken);
     if (!OAuthToken) {
-      // This case might still be needed if the token is valid but deleted from DB
-      await deleteOAuthTokenByRefreshToken(refreshToken); // Clean up
+      await deleteOAuthTokenByRefreshToken(refreshToken);
       return res.status(401).json({
         message: "There is no OAuthToken with this refresh token id",
       });
@@ -52,7 +47,7 @@ exports.handle_refresh_token = [
     // }
 
     const account = OAuthToken.account;
-    console.log("Account id in refresh controller: ", account);
+    console.log("Account id in refresh controller: ", account.id);
 
     const newAccessToken = generateAccessToken(account);
 

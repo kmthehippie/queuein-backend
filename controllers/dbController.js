@@ -54,14 +54,13 @@ exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log(req.params);
+    console.log(`Entered side nav outlet get: `, req.params.accountId);
     const accountId = req.params.accountId;
     const outlets = await findOutletsByAcctId(accountId);
     const arrToReturn = outlets.map((outlet) => ({
       name: outlet.name,
       id: outlet.id,
     }));
-    console.log(arrToReturn);
     if (!outlets) {
       return res
         .status(404)

@@ -3,20 +3,19 @@ const { header, body, validationResult } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
 const passwordUtils = require("../config/passwordUtils");
 const jwt = require("../config/jwt");
+const passport = require("passport");
 const { setAuthCookies } = require("../middleware/setAuthCookies");
 const slugify = require("../config/slugify");
 
 const {
-  deleteAllOAuthToken,
-  deleteOAuthTokenByRefreshToken,
-  findOAuthTokenByOID,
-  deleteOAuthTokenByOID,
+  deleteOAuthToken,
   getAccountEmail,
   createAccount,
   createStaff,
   createOAuthToken,
   updateOAuthToken,
   findOAuthTokenByAccountIdAndUserAgent,
+  findOAuthTokenByRefreshToken,
   findExistingSlug,
 } = require("../db/authQueries");
 
@@ -40,33 +39,25 @@ exports.normal_login = [
     .withMessage("User-Agent must be between 5 and 255 characters")
     .matches(/Mozilla\/\d+\.\d+/, "i"),
   // Validate input
-  body("credentials.email", "Invalid credentials")
-    .trim()
-    .isEmail()
-    .normalizeEmail(),
-  body("credentials.password", "Invalid credentials")
+  body("email", "Invalid credentials").trim().isEmail().normalizeEmail(),
+  body("password", "Invalid credentials")
     .trim()
     .isLength({ min: 6 })
     .notEmpty(),
-  body("credentials.rememberDevice", "'Remember Device' is not a boolean")
+  body("rememberDevice", "'Remember Device' is not a boolean")
     .optional()
     .isBoolean()
     .toBoolean(),
   handleValidationResult,
-
+  passport.authenticate("local", { session: false }),
   asyncHandler(async (req, res, next) => {
-    const { email, password, rememberDevice } = req.body.credentials;
+    const accountExist = req.user;
+    console.log("Does account from passport exist? ", req.user);
+    const { rememberDevice } = req.body;
     const userAgent = req.get("User-Agent");
-
-    const accountExist = await getAccountEmail(email);
-    console.log("Account exist? ", accountExist.companyName);
-    if (!accountExist) return sendInvalidCredentialsError(res);
-    if (!(await passwordUtils.validatePw(accountExist.password, password)))
-      return sendInvalidCredentialsError(res);
-
     const accessToken = jwt.generateAccessToken(accountExist);
     const refreshToken = jwt.generateRefreshToken(accountExist);
-
+    console.log("Do we remember device? ", rememberDevice);
     if (rememberDevice) {
       try {
         const existingOAuthToken = await findOAuthTokenByAccountIdAndUserAgent(
@@ -255,35 +246,22 @@ exports.normal_register_form_post = [
 
 exports.normal_logout = [
   asyncHandler(async (req, res, next) => {
-    // 1. Get cookies (jwt contains refresh token, oid is the OAuthToken ID)
-    const cookies = req.cookies;
-    const refreshToken = cookies.jwt; // Assuming your refresh token cookie is named 'jwt'
-    const oid = cookies.oid; // OAuthToken ID cookie
+    const refreshToken = req.cookies.jwt;
+    const oid = req.cookies.oid;
 
-    // Important: Define cookie options consistent with how they were set
-    // You MUST use the same 'domain', 'path', 'secure', 'httpOnly', 'sameSite'
-    // options when clearing as when setting them.
-    // If you don't use 'secure' in development, ensure it's false here.
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Set to true in production
-      sameSite: "None", // Required for cross-site cookies, typically
-      path: "/", // Ensure the path matches where the cookie was set
+      secure: "None", // Set to true in production
+      sameSite: "None",
+      path: "/",
     };
 
     try {
-      if (oid) {
-        // If an OID cookie exists, attempt to delete the specific OAuthToken record
-        console.log(`Attempting to delete OAuthToken by OID: ${oid}`);
-        await deleteOAuthTokenByOID(oid);
-      } else if (refreshToken) {
-        // If no OID but a refresh token exists, attempt to delete by refresh token
-        // This handles cases where 'rememberDevice' was false during login,
-        // or the 'oid' cookie might have been lost/not set correctly.
-        console.log(`Attempting to delete OAuthToken by Refresh Token.`);
-        await deleteOAuthTokenByRefreshToken(refreshToken);
+      const oAuthTokenExist = await findOAuthTokenByRefreshToken(refreshToken);
+      if (oAuthTokenExist) {
+        const data = { oid: oid, refreshToken: refreshToken };
+        await deleteOAuthToken(data);
       } else {
-        // If neither exists, the user likely wasn't logged in persistently on this device.
         console.log("No refresh token or OID cookie found to invalidate.");
       }
     } catch (error) {
@@ -291,16 +269,10 @@ exports.normal_logout = [
         "Error deleting OAuthToken from database during logout:",
         error
       );
-      // Even if database deletion fails, we should still clear client-side cookies
-      // to prevent potential stale sessions or client-side errors.
-      // Do NOT send a 500 error here unless it's critical to stop the logout process entirely.
-      // A successful cookie clearance is usually more important from user perspective.
     } finally {
-      // 2. Clear authentication cookies
       res.clearCookie("jwt", cookieOptions);
-      res.clearCookie("oid", cookieOptions); // Clear the oid cookie too
-
-      // 3. Send success response
+      res.clearCookie("oid", cookieOptions);
+      console.log("Successfully logged out!");
       return res.status(200).json({ message: "Logged out successfully." });
     }
   }),

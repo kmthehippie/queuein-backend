@@ -4,21 +4,23 @@ const refreshTokenExpiry = parseInt(
 const oidExpiry = parseInt(process.env.OID_EXPIRY_FOR_COOKIES);
 
 const setAuthCookies = (req, res, next, refreshToken, id) => {
-  res.cookie("jwt", refreshToken, {
+  const cookieOptions = {
     httpOnly: true,
     sameSite: "None",
-    maxAge: refreshTokenExpiry,
-    secure: true, // IMPORTANT: Set this to true
+    secure: true,
     path: "/",
+  };
+
+  res.cookie("jwt", refreshToken, {
+    ...cookieOptions,
+    maxAge: refreshTokenExpiry,
   });
 
   res.cookie("oid", id, {
-    httpOnly: true,
-    sameSite: "None",
+    ...cookieOptions,
     maxAge: oidExpiry,
-    secure: true, // IMPORTANT: Set this to true
-    path: "/",
   });
+  console.log("Setting auth cookies!");
   next();
 };
 

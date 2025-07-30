@@ -83,7 +83,6 @@ exports.getStaffByNameAndAccount = async (data) => {
 };
 
 exports.updateOAuthToken = async (data) => {
-  console.log(data);
   const updatedToken = await prisma.oAuthToken.update({
     where: {
       id: data.id,
@@ -110,7 +109,7 @@ exports.findOAuthTokenByRefreshToken = async (refreshToken) => {
       account: true,
     },
   });
-  console.log("Finding oauthtoken by refreshtoken ", token);
+  console.log("Finding oauthtoken by refreshtoken. The OID: ", token.id);
   return token;
 };
 exports.findOAuthTokenByAccountIdAndUserAgent = async (
@@ -155,7 +154,7 @@ exports.deleteOAuthTokenByOID = async (oid) => {
 };
 
 exports.createOutlet = async (data) => {
-  console.log("Creating new outlet ", data);
+  console.log("Creating new outlet ");
   const newOutlet = await prisma.outlet.create({
     data: {
       name: data.name,
@@ -776,14 +775,8 @@ exports.findQueueItemByContactNumberAndQueueId = async (data) => {
   return queueItem;
 };
 
-exports.deleteOAuthTokenByOID = async (oid) => {
+exports.deleteOAuthToken = async (data) => {
   return prisma.oAuthToken.delete({
-    where: { id: oid },
-  });
-};
-
-exports.deleteOAuthTokenByRefreshToken = async (refreshToken) => {
-  return prisma.oAuthToken.delete({
-    where: { refreshToken: refreshToken },
+    where: { id: data.oid, refreshToken: data.refreshToken },
   });
 };

@@ -31,6 +31,7 @@ app.use(cors(corsOptions)); // Apply the cors package middleware
 app.use(cookieParser()); // Apply cookie-parser AFTER CORS
 app.use(passport.initialize());
 require("./config/passportConfig");
+
 app.use("/", indexRouter);
 
 const server = http.createServer(app);

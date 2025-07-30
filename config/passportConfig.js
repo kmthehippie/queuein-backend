@@ -22,10 +22,11 @@ passport.use(
       passReqToCallback: true,
     },
     async (req, email, password, done) => {
-      console.log(req.body);
       try {
+        console.log("Entering passport local strategy: ", req.body);
         const account = await getAccountEmail(email);
         if (!account) {
+          console.log("Authentication failed -- No such email found: ", email);
           return done(null, false, { error: "Invalid Email or Password" });
         }
         const validPw = await validatePw(account.password, password);
@@ -34,6 +35,7 @@ passport.use(
         }
         return done(null, account);
       } catch (err) {
+        console.error("Passport local strategy error: ", err);
         return done(err, null);
       }
     }
