@@ -104,6 +104,8 @@ router.patch("/staff/:accountId/:staffId", dbController.staff_patch);
 //MINI VERIFICATION ROUTE
 router.post("/authorisedRole/:accountId", dbController.check_role_post);
 
+//SETTINGS RELATED ROUTES
+
 // This is testing for protected route
 router.post(
   "/test",

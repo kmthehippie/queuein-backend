@@ -92,6 +92,7 @@ model Outlet {
   googleMaps         String? @db.VarChar(255)
   wazeMaps           String? @db.VarChar(255)
   imgUrl             String? @db.VarChar(255) //Image stored in cloudinary
+  qrCode             String? @db.VarChar(255) //QR Code image stored in cloudinary
   defaultEstWaitTime Int?
   phone              String? @db.VarChar(36)
   hours              String?

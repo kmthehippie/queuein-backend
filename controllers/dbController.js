@@ -14,8 +14,6 @@ const {
   findQueueItemsLengthByQueueId,
   createAQueueItem,
   createACustomer,
-  findOutletByQueueId,
-  findDupeActiveCustomerInQueueItem,
   updateQueueItem,
   updateCallQueueItem,
   findAllStaffByAcctId,
@@ -27,19 +25,12 @@ const {
   updateStaffByIdAndAcctId,
   deleteOutletByIdAndAcctId,
   endQueueByQueueId,
-  findActiveQueueItemsInInactiveQueues,
   findQueueItemByQueueItemId,
-  findRelevantQueueForOutlet,
-  updateCallQueueItemNull,
   findQueueItemByContactNumberAndQueueId,
   createAQueueItemVIP,
   findQueueItemsByQueueId,
-  findQueueByQueueId,
-  findActiveQueueByOutletId,
   findRecentlyInactiveQueue,
   countActiveQueueItemsByQueueId,
-  findLatestInactiveQueueStats,
-  updateQueueItemByQueueItemId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
 const e = require("express");
@@ -1094,3 +1085,10 @@ exports.check_role_post = [
     }
   }),
 ];
+
+//*SETTINGS*//
+//TODO ACCOUNT CONTROLLER
+//TODO OUTLETS CONTROLLER
+
+//TODO OUTLET - QRCODE
+//TODO AUDIT LOGS CONTROLLER
