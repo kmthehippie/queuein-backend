@@ -38,6 +38,7 @@ const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
   PrismaClientKnownRequestError,
 } = require("@prisma/client/runtime/library");
+const upload = require("../config/multerConfig");
 
 //* OUTLET RELATED CONTROLLERS *//
 
@@ -80,6 +81,7 @@ exports.all_outlets_get = [
 ];
 
 exports.update_outlet_patch = [
+  upload.single("outletImage"),
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
   body("name")
@@ -106,17 +108,15 @@ exports.update_outlet_patch = [
     .notEmpty()
     .withMessage("Waze Maps URL cannot be empty if provided.")
     .trim(),
-  body("imgUrl")
-    .optional({ checkFalsy: true })
-    .isURL()
-    .withMessage("Image URL must be a valid URL.")
-    .notEmpty()
-    .withMessage("Image URL cannot be empty if provided.")
-    .trim(),
+  // body("imgUrl")
+  //   .optional({ checkFalsy: true })
+  //   .isURL()
+  //   .withMessage("Image URL must be a valid URL.")
+  //   .notEmpty()
+  //   .withMessage("Image URL cannot be empty if provided.")
+  //   .trim(),
   body("defaultEstWaitTime")
     .optional()
-    .isInt({ min: 0 })
-    .withMessage("Estimated wait time must be a non-negative integer.")
     .notEmpty()
     .withMessage("Estimated wait time cannot be empty if provided."),
   body("phone")
@@ -139,11 +139,27 @@ exports.update_outlet_patch = [
     console.log("These are the params: ", params);
     console.log("This is the body: ", req.body);
 
+    const imgUrl = req.file ? req.file.path : null;
+    console.log("This is the image URL from Cloudinary: ", imgUrl);
+    const defaultEstWaitTime = req.body.defaultEstWaitTime;
+    let parsedEstWaitTime = null;
     const dataToUpdate = {
       outletId: parseInt(params.outletId),
       accountId: params.accountId,
       ...req.body,
     };
+
+    if (defaultEstWaitTime) {
+      parsedEstWaitTime = parseInt(defaultEstWaitTime, 10);
+      dataToUpdate.defaultEstWaitTime = parsedEstWaitTime;
+    }
+
+    if (imgUrl) {
+      dataToUpdate.imgUrl = imgUrl;
+    }
+
+    console.log("This is the dataToUpdate ", dataToUpdate);
+
     const updatedOutlet = await updateOutletByOutletAndAcctId(dataToUpdate);
     if (!updatedOutlet) {
       return res

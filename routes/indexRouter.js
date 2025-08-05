@@ -51,9 +51,9 @@ router.post("/customerVerifyLS", customerController.check_local_storage);
 router.post("/login", authController.normal_login);
 router.post("/register", authController.normal_register_form_post);
 router.post("/logout", authController.normal_logout);
-router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
-  res.send("Hey we got past the protected routes!");
-});
+// router.get("/dashboard", jwt.authAccessToken, (req, res, next) => {
+//   res.send("Hey we got past the protected routes!");
+// });
 router.post("/refresh", refreshController.handle_refresh_token);
 
 //* DASHBOARD ROUTES *//
@@ -63,7 +63,7 @@ router.get("/sidenav/:accountId", dbController.sidenav_outlet_get);
 //OUTLET RELATED ROUTES
 router.get("/allOutlets/:accountId", dbController.all_outlets_get);
 router.patch(
-  "/updateOutlet/:accountId/:outletId",
+  "/updateOutlet/:accountId/:outletId/:uploadType",
   dbController.update_outlet_patch
 );
 router.delete("/delOutlet/:accountId/:outletId", dbController.outlet_delete);
