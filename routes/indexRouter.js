@@ -68,6 +68,7 @@ router.patch(
 );
 router.delete("/delOutlet/:accountId/:outletId", dbController.outlet_delete);
 router.post("/newOutlet/:accountId", dbController.new_outlet_post);
+router.get("/outlet/:accountId/:outletId", dbController.qrcode_outlet_get);
 
 //QUEUE RELATED ROUTES
 router.get(
@@ -105,6 +106,7 @@ router.patch("/staff/:accountId/:staffId", dbController.staff_patch);
 router.post("/authorisedRole/:accountId", dbController.check_role_post);
 
 //SETTINGS RELATED ROUTES
+router.post("/genQRCode/:accountId/:outletId", dbController.qrcode_outlet_post);
 
 // This is testing for protected route
 router.post(

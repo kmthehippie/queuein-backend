@@ -39,6 +39,7 @@ const {
   PrismaClientKnownRequestError,
 } = require("@prisma/client/runtime/library");
 const upload = require("../config/multerConfig");
+const { generateQRCode } = require("../helper/generateQRCode");
 
 //* OUTLET RELATED CONTROLLERS *//
 
@@ -191,6 +192,7 @@ exports.outlet_delete = [
 ];
 
 exports.new_outlet_post = [
+  upload.single("outletImage"),
   param("accountId")
     .notEmpty()
     .withMessage("Account ID cannot be empty.")
@@ -217,11 +219,11 @@ exports.new_outlet_post = [
     .trim()
     .isURL()
     .withMessage("Waze Maps URL must be a valid URL."),
-  body("imgUrl")
-    .optional({ checkFalsy: true })
-    .trim()
-    .isURL()
-    .withMessage("Image URL must be a valid URL."),
+  // body("imgUrl")
+  //   .optional({ checkFalsy: true })
+  //   .trim()
+  //   .isURL()
+  //   .withMessage("Image URL must be a valid URL."),
   body("defaultEstWaitTime")
     .notEmpty()
     .withMessage("Estimated wait time is required.")
@@ -246,11 +248,25 @@ exports.new_outlet_post = [
   asyncHandler(async (req, res, next) => {
     console.log("We are in the new outlet post", req.params);
     console.log(req.body);
+
+    const imgUrl = req.file ? req.file.path : null;
+    console.log("This is the image URL from Cloudinary: ", imgUrl);
     const data = {
       accountId: req.params.accountId,
       ...req.body,
+      qrCode: null,
+      imgUrl: imgUrl,
     };
     const createNewOutlet = await createOutlet(data);
+
+    console.log("What is the outlet id? ", createNewOutlet.id);
+
+    const dataForQRCode = {
+      outletId: createNewOutlet.id,
+      accountId: req.params.accountId,
+    };
+    const genQR = await generateQRCode(dataForQRCode);
+    console.log(genQR);
     if (!createNewOutlet) {
       return res.status(404).json({ message: "Error creating a new outlet" });
     } else {
@@ -278,7 +294,7 @@ exports.queue_activity_get = [
       return res.status(404).json({ message: "Error, outlet not found" });
     }
 
-    const activeQueue = await findActiveQueuesByOutletAndAccountId(data);
+    const activeQueue = outlet.queues;
 
     let relevantQueue = null;
 
@@ -1106,5 +1122,34 @@ exports.check_role_post = [
 //TODO ACCOUNT CONTROLLER
 //TODO OUTLETS CONTROLLER
 
+//*QR CODE*//
+exports.qrcode_outlet_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    try {
+      const outlet = await findOutletByIdAndAccountId({
+        accountId: req.params.accountId,
+        id: parseInt(req.params.outletId),
+      });
+      return res.status(200).json(outlet);
+    } catch (error) {
+      console.error(error);
+      return res.status(404).json({ message: "Could not find outlet" });
+    }
+  }),
+];
+
+exports.qrcode_outlet_post = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { accountId, outletId } = req.params;
+    const genQR = generateQRCode({ outletId, accountId });
+    console.log(genQR);
+  }),
+];
 //TODO OUTLET - QRCODE
 //TODO AUDIT LOGS CONTROLLER
