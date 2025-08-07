@@ -31,9 +31,10 @@ const {
   findQueueItemsByQueueId,
   findRecentlyInactiveQueue,
   countActiveQueueItemsByQueueId,
+  findAccountByAccountId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
-const e = require("express");
+const jwt = require("../config/jwt");
 const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
   PrismaClientKnownRequestError,
@@ -42,7 +43,6 @@ const upload = require("../config/multerConfig");
 const { generateQRCode } = require("../helper/generateQRCode");
 
 //* OUTLET RELATED CONTROLLERS *//
-
 exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
@@ -1120,6 +1120,24 @@ exports.check_role_post = [
 
 //*SETTINGS*//
 //TODO ACCOUNT CONTROLLER
+exports.account_details_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    try {
+      const { accountId } = req.params;
+      const account = await findAccountByAccountId(accountId);
+      if (account) {
+        console.log(account);
+        delete account.password;
+        return res.status(200).json(account);
+      }
+    } catch (error) {
+      console.error(error);
+      return res.status(404).json({ message: "Could not find account" });
+    }
+  }),
+];
 //TODO OUTLETS CONTROLLER
 
 //*QR CODE*//
