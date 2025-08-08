@@ -32,6 +32,7 @@ const {
   findRecentlyInactiveQueue,
   countActiveQueueItemsByQueueId,
   findAccountByAccountId,
+  updateAccount,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
 const jwt = require("../config/jwt");
@@ -295,7 +296,6 @@ exports.queue_activity_get = [
     }
 
     const activeQueue = outlet.queues;
-
     let relevantQueue = null;
 
     if (activeQueue.length > 0) {
@@ -1135,6 +1135,44 @@ exports.account_details_get = [
     } catch (error) {
       console.error(error);
       return res.status(404).json({ message: "Could not find account" });
+    }
+  }),
+];
+
+exports.account_details_patch = [
+  upload.single("outletImage"),
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { accountId } = req.params;
+    const { slug, companyName } = req.body;
+
+    const params = req.params;
+    console.log("These are the params: ", params);
+    console.log("This is the body: ", req.body);
+
+    const logo = req.file ? req.file.path : null;
+    console.log("This is the image URL from Cloudinary: ", logo);
+
+    const dataToUpdate = {
+      accountId: accountId,
+      ...req.body,
+    };
+
+    if (logo) {
+      dataToUpdate.logo = logo;
+    }
+
+    console.log("This is the dataToUpdate ", dataToUpdate);
+
+    const updatedAccount = await updateAccount(dataToUpdate);
+    if (!updatedAccount) {
+      return res
+        .status(404)
+        .json({ message: "Error. Was not able to update the account data." });
+    } else {
+      console.log("Completed update of account: ", updatedAccount);
+      return res.status(201).json(updatedAccount);
     }
   }),
 ];

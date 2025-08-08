@@ -3,7 +3,7 @@ const qrCode = require("qrcode");
 const { updateQRCodeForOutletId } = require("../db/authQueries");
 
 const generateQRCode = async ({ outletId, accountId }) => {
-  const outletUrl = `${process.env.DOMAIN_NAME}/db/${accountId}/outlets/qr/${outletId}`;
+  const outletUrl = `${process.env.DOMAIN_NAME}/db/${accountId}/outlets/qr/${outletId}?source=qr`;
   const genQRCodeImage = await qrCode.toDataURL(outletUrl, {
     type: "image/png",
     width: 250,

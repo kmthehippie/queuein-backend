@@ -30,6 +30,7 @@ exports.generateRefreshToken = (account) => {
 
 exports.authAccessToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
+  console.log("Trying to authorize the access token: ", authHeader);
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) {
     return res.status(401).json({ message: "Access Token Required" });
@@ -47,11 +48,6 @@ exports.authAccessToken = (req, res, next) => {
 
 exports.refreshTokenDecoded = (req, res, next) => {
   const refreshToken = req.cookies.jwt;
-  console.log(
-    "Request from refresh token decoded: ",
-    JSON.stringify(req.cookies)
-  );
-  console.log("Refresh token decoded ", refreshToken);
   if (!refreshToken) {
     return res.status(401).json({ message: "Refresh Token Required" });
   }

@@ -108,6 +108,11 @@ router.post("/authorisedRole/:accountId", dbController.check_role_post);
 //SETTINGS RELATED ROUTES
 router.post("/genQRCode/:accountId/:outletId", dbController.qrcode_outlet_post);
 router.get("/settings/account/:accountId", dbController.account_details_get);
+router.patch(
+  "/account/:accountId/:uploadType",
+  jwt.authAccessToken,
+  dbController.account_details_patch
+);
 
 // This is testing for protected route
 router.post(
