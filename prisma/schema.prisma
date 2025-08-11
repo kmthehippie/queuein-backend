@@ -28,6 +28,7 @@ model Account {
   queues       Queue[]
   slug         String       @unique @db.VarChar(255)
   customers    Customer[]
+  auditLogs    AuditLog[]
 
   @@index([slug])
 }
@@ -83,19 +84,20 @@ enum Provider {
 }
 
 model Outlet {
-  id                 Int     @id @unique @default(autoincrement())
-  name               String? @db.VarChar(255)
-  account            Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id                 Int        @id @unique @default(autoincrement())
+  name               String?    @db.VarChar(255)
+  account            Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId          String
   queues             Queue[]
-  location           String? @db.VarChar(255)
-  googleMaps         String? @db.VarChar(255)
-  wazeMaps           String? @db.VarChar(255)
-  imgUrl             String? @db.VarChar(255) //Image stored in cloudinary
-  qrCode             String? @db.VarChar(255) //QR Code image stored in cloudinary
+  location           String?    @db.VarChar(255)
+  googleMaps         String?    @db.VarChar(255)
+  wazeMaps           String?    @db.VarChar(255)
+  imgUrl             String?    @db.VarChar(255) //Image stored in cloudinary
+  qrCode             String?    @db.VarChar(255) //QR Code image stored in cloudinary
   defaultEstWaitTime Int?
-  phone              String? @db.VarChar(36)
+  phone              String?    @db.VarChar(36)
   hours              String?
+  auditLogs          AuditLog[]
 
   @@index([accountId])
 }
@@ -170,7 +172,13 @@ model AuditLog {
   staff      Staff    @relation(fields: [staffId], references: [id])
   actionType String
   timestamp  DateTime @default(now())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  String
+  outletId   Int?
+  outlet     Outlet?  @relation(fields: [outletId], references: [id])
 
   @@index([staffId])
+  @@index([accountId])
+  @@index([outletId])
   @@index([actionType])
 }

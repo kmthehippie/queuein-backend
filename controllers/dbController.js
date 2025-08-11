@@ -33,6 +33,7 @@ const {
   countActiveQueueItemsByQueueId,
   findAccountByAccountId,
   updateAccount,
+  findAuditLogsByOutletId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
 const jwt = require("../config/jwt");
@@ -1062,13 +1063,18 @@ exports.check_role_post = [
     .escape()
     .trim()
     .withMessage("Minimum role for this action"),
+  body("outletId").escape().trim(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const data = { ...req.body };
-
+    console.log(
+      "These are the body from check role post -- staff auth: ",
+      req.body
+    );
+    const { name, password, actionPurpose, minimumRole, outletId } = req.body;
+    const { accountId } = req.params;
     const dataToFindStaff = {
-      name: req.body.name,
-      accountId: req.params.accountId,
+      name: name,
+      accountId: accountId,
     };
 
     const ROLE_HIERARCHY = {
@@ -1082,11 +1088,13 @@ exports.check_role_post = [
     };
 
     const staff = await getStaffByNameAndAccount(dataToFindStaff);
+
+    console.log("Is there a staff? ", staff);
     if (!staff) {
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    const pwValid = await validatePw(staff.password, data.password);
+    const pwValid = await validatePw(staff.password, password);
     if (!pwValid) {
       return res
         .status(403)
@@ -1094,15 +1102,21 @@ exports.check_role_post = [
     }
 
     const staffRoleValue = ROLE_HIERARCHY[staff.role];
-    const minimumRoleValue = ROLE_HIERARCHY[data.minimumRole];
+    const minimumRoleValue = ROLE_HIERARCHY[minimumRole];
 
     if (staffRoleValue >= minimumRoleValue) {
       const dataForAuditLog = {
         staffId: staff.id,
-        actionType: req.body.actionPurpose,
+        actionType: actionPurpose,
+        accountId: accountId,
       };
+      if (outletId) {
+        dataForAuditLog.outletId = parseInt(outletId);
+      }
+      console.log("These are the data to create audit log: ", dataForAuditLog);
 
       await createAuditLog(dataForAuditLog);
+
       const dataForFront = {
         staffId: staff.id,
         staffRole: staff.role,
@@ -1177,7 +1191,7 @@ exports.account_details_patch = [
   }),
 ];
 //TODO OUTLETS CONTROLLER
-
+//TODO OUTLET - QRCODE
 //*QR CODE*//
 exports.qrcode_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -1196,7 +1210,7 @@ exports.qrcode_outlet_get = [
     }
   }),
 ];
-
+//Generate QR COde on post
 exports.qrcode_outlet_post = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
@@ -1207,5 +1221,28 @@ exports.qrcode_outlet_post = [
     console.log(genQR);
   }),
 ];
-//TODO OUTLET - QRCODE
+
 //TODO AUDIT LOGS CONTROLLER
+exports.audit_logs_outlet_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { accountId, outletId } = req.params;
+    const data = {
+      accountId: accountId,
+      outletId: parseInt(outletId),
+    };
+    try {
+      const auditLogs = await findAuditLogsByOutletId(data);
+      console.log("Audit logs: ", auditLogs);
+
+      return res.status(200).json(auditLogs);
+    } catch (error) {
+      console.error("Error, no audit logs found: ", error);
+      return res.status(404).json({
+        message: "Could not find audit logs for this outlet and account id",
+      });
+    }
+  }),
+];

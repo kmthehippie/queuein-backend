@@ -696,7 +696,20 @@ exports.createAuditLog = async (data) => {
   console.log("Create an Audit log ", data);
   const createLog = await prisma.auditLog.create({
     data: {
-      staffId: data.staffId,
+      staff: {
+        connect: {
+          id: data.staffId,
+        },
+      },
+      account: {
+        connect: {
+          id: data.accountId,
+        },
+      },
+      outlet: data.outletId
+        ? { connect: { id: parseInt(data.outletId) } }
+        : undefined,
+
       actionType: data.actionType,
     },
   });
@@ -746,7 +759,6 @@ exports.deleteOutletByIdAndAcctId = async (data) => {
       accountId: data.accountId,
     },
   });
-  console.log("Success! Deleted outlet: ", deleteOutlet);
   return deleteOutlet;
 };
 
@@ -760,7 +772,6 @@ exports.endQueueByQueueId = async (data) => {
       endTime: new Date(),
     },
   });
-  console.log(`${data.queueId} queue has ended. It is no longer active`);
   return endQueue;
 };
 
@@ -781,7 +792,6 @@ exports.checkStaffValidity = async (data) => {
 };
 
 exports.findQueueItemByContactNumberAndQueueId = async (data) => {
-  console.log("This is the data for finding queue item:", data);
   const queueItem = await prisma.queueItem.findMany({
     where: {
       queueId: data.queueId,
@@ -799,7 +809,6 @@ exports.deleteOAuthToken = async (data) => {
 };
 
 exports.updateQRCodeForOutletId = async (data) => {
-  console.log("Data: ", data);
   const outlet = await prisma.outlet.update({
     where: {
       id: data.outletId,
@@ -809,4 +818,28 @@ exports.updateQRCodeForOutletId = async (data) => {
   });
   console.log("Outlet updated: ", outlet);
   return outlet;
+};
+
+exports.findAuditLogsByOutletId = async (data) => {
+  console.log("Data for audit logs: ", data);
+  const auditLog = await prisma.auditLog.findMany({
+    where: {
+      outletId: data.outletId,
+      accountId: data.accountId,
+    },
+    include: {
+      staff: {
+        select: {
+          name: true,
+          id: true,
+          role: true,
+        },
+      },
+    },
+    orderBy: {
+      timestamp: "desc",
+    },
+  });
+  console.log("Audit logs related to this outlet for this account: ", auditLog);
+  return auditLog;
 };

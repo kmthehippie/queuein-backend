@@ -113,6 +113,10 @@ router.patch(
   jwt.authAccessToken,
   dbController.account_details_patch
 );
+router.get(
+  "/settings/auditlogs/:accountId/:outletId/",
+  dbController.audit_logs_outlet_get
+);
 
 // This is testing for protected route
 router.post(
