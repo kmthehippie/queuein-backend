@@ -12,6 +12,16 @@ const {
   findAccountByAccountId,
   createQueue,
 } = require("../db/authQueries");
+const rateLimit = require("express-rate-limit");
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // Limit each IP to 5 requests per `window` (here, per minute)
+  message:
+    "You have made too many requests to join the queue. Please try again after a minute.",
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
 
 router.get("/", (req, res, next) => {
   res.send("Home");
@@ -29,6 +39,7 @@ router.get(
 );
 router.post(
   "/customerForm/:acctSlug/:outletId/:queueId",
+  limiter,
   customerController.customer_form_post
 );
 router.post(
@@ -37,6 +48,7 @@ router.post(
 );
 router.post(
   "/customerUpdatePax/:acctSlug/:queueId/:queueItemId",
+  limiter,
   customerController.customer_update_pax_post
 );
 router.post(

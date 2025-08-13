@@ -1133,7 +1133,7 @@ exports.check_role_post = [
 ];
 
 //*SETTINGS*//
-//TODO ACCOUNT CONTROLLER
+
 exports.account_details_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
@@ -1152,7 +1152,6 @@ exports.account_details_get = [
     }
   }),
 ];
-
 exports.account_details_patch = [
   upload.single("outletImage"),
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -1190,8 +1189,7 @@ exports.account_details_patch = [
     }
   }),
 ];
-//TODO OUTLETS CONTROLLER
-//TODO OUTLET - QRCODE
+
 //*QR CODE*//
 exports.qrcode_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
@@ -1210,7 +1208,6 @@ exports.qrcode_outlet_get = [
     }
   }),
 ];
-//Generate QR COde on post
 exports.qrcode_outlet_post = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
@@ -1221,8 +1218,6 @@ exports.qrcode_outlet_post = [
     console.log(genQR);
   }),
 ];
-
-//TODO AUDIT LOGS CONTROLLER
 exports.audit_logs_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
@@ -1246,3 +1241,5 @@ exports.audit_logs_outlet_get = [
     }
   }),
 ];
+
+//TODO: CUSTOMERS LIST WITHIN ACCOUNT PAGE

@@ -90,11 +90,16 @@ exports.landing_page = [
       const data = { outletId: outlet.id, accountId: account.id };
       const queues = await findActiveQueuesByOutletAndAccountId(data);
       for (const queue of queues) {
-        const queueItemsLength = await findQueueItemsLengthByQueueId(queue.id);
+        const queueItemsLength = await findActiveQueueItemsLengthByQueueId(
+          queue.id
+        );
+        console.log(queue.id, "The queue items length: ", queueItemsLength);
         queue.queueLength = queueItemsLength;
+        delete queue.queueItems;
       }
       outletsWithQueue.push({ ...outlet, queues });
     }
+    console.log("This is the returned info: ", accountInfo, outletsWithQueue);
     res.status(200).json({ accountInfo, outletsWithQueue });
   }),
 ];
@@ -136,31 +141,40 @@ exports.outlet_landing_page = [
     };
 
     const queue = await findActiveQueuesByOutletAndAccountId(infoToFindQueue);
-    console.log("Does queue exist?", queue);
+    if (queue) {
+      const queueItems = queue[0].queueItems;
+      const activeItems = queueItems.filter(
+        (item) =>
+          item.called === false &&
+          item.seated === false &&
+          item.quit === false &&
+          item.noShow === false &&
+          item.active === true
+      );
+      const activeItemsLength = activeItems.length;
+      console.log("The queue items that are active: ", activeItemsLength);
+      if (activeItemsLength === 0) {
+        console.log("Active q items length is zero");
+        return res.status(200).json({
+          accountInfo,
+          outlet,
+          queue,
+        });
+      }
+      console.log("Active q items length is not zero", activeItemsLength);
+      res.status(200).json({
+        accountInfo,
+        outlet,
+        queue,
+        activeItemsLength,
+      });
+    }
     if (queue.length === 0 || queue.active === false) {
       return res.status(200).json({
         accountInfo,
         outlet,
       });
     }
-
-    console.log("Is this the queueId: ", queue[0].id);
-    const queueId = queue[0].id;
-    const queueItemsLength = await findActiveQueueItemsLengthByQueueId(queueId);
-
-    if (queueItemsLength === 0) {
-      return res.status(200).json({
-        accountInfo,
-        outlet,
-        queue,
-      });
-    }
-    res.status(200).json({
-      accountInfo,
-      outlet,
-      queue,
-      queueItemsLength,
-    });
   }),
 ];
 

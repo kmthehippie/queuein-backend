@@ -260,6 +260,7 @@ exports.findActiveQueuesByOutletAndAccountId = async (data) => {
       id: true,
       name: true,
       active: true,
+      queueItems: true,
     },
     orderBy: {
       startTime: "desc",
@@ -591,19 +592,19 @@ exports.findQueueItemByQueueItemId = async (queueItemId) => {
   return queueItem;
 };
 
-// exports.updateQueueItemByQueueItemId = async (data) => {
-//   const updatedQueueItem = await prisma.queueItem.update({
-//     where: {
-//       id: data.queueItemId,
-//     },
-//     data: {
-//       active: data.active,
-//       quit: data.quit,
-//     },
-//   });
-//   console.log("Previous queue item is being updated ", updatedQueueItem);
-//   return updatedQueueItem;
-// };
+exports.updateQueueItemByQueueItemId = async (data) => {
+  const updatedQueueItem = await prisma.queueItem.update({
+    where: {
+      id: data.queueItemId,
+    },
+    data: {
+      active: data.active,
+      quit: data.quit,
+    },
+  });
+  console.log("Previous queue item is being updated ", updatedQueueItem);
+  return updatedQueueItem;
+};
 
 exports.updatePaxByQueueItemId = async (data) => {
   const updatedQueueItem = await prisma.queueItem.update({
