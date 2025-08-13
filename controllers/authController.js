@@ -246,6 +246,7 @@ exports.normal_register_form_post = [
 
 exports.normal_logout = [
   asyncHandler(async (req, res, next) => {
+    const { accountId } = req.params;
     const refreshToken = req.cookies.jwt;
     const oid = req.cookies.oid;
 
@@ -259,7 +260,12 @@ exports.normal_logout = [
     try {
       const oAuthTokenExist = await findOAuthTokenByRefreshToken(refreshToken);
       if (oAuthTokenExist) {
-        const data = { oid: oid, refreshToken: refreshToken };
+        const data = {
+          oid: oid,
+          refreshToken: refreshToken,
+          accountId: accountId,
+        };
+        console.log("Data for normal logout: ", data);
         await deleteOAuthToken(data);
       } else {
         console.log("No refresh token or OID cookie found to invalidate.");

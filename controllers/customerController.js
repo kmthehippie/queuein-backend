@@ -141,7 +141,8 @@ exports.outlet_landing_page = [
     };
 
     const queue = await findActiveQueuesByOutletAndAccountId(infoToFindQueue);
-    if (queue) {
+    if (queue.length !== 0) {
+      console.log(queue);
       const queueItems = queue[0].queueItems;
       const activeItems = queueItems.filter(
         (item) =>

@@ -129,6 +129,7 @@ model Customer {
   queueItems QueueItem[] @relation("CustomerQueueItem")
   account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
+  createdAt  DateTime    @default(now())
 }
 
 model QueueItem {

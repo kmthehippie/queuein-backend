@@ -1,10 +1,5 @@
 const { use } = require("passport");
 const prisma = require("../script");
-const {
-  twentyFourHoursAgo,
-  fortyEightHoursAgo,
-  now,
-} = require("../helper/convertTime");
 
 exports.getAccountEmail = async (email) => {
   const emailExist = prisma.account.findUnique({
@@ -805,7 +800,11 @@ exports.findQueueItemByContactNumberAndQueueId = async (data) => {
 
 exports.deleteOAuthToken = async (data) => {
   return prisma.oAuthToken.delete({
-    where: { id: data.oid, refreshToken: data.refreshToken },
+    where: {
+      id: data.oid,
+      refreshToken: data.refreshToken,
+      accountId: data.accountId,
+    },
   });
 };
 
@@ -841,6 +840,6 @@ exports.findAuditLogsByOutletId = async (data) => {
       timestamp: "desc",
     },
   });
-  console.log("Audit logs related to this outlet for this account: ", auditLog);
+
   return auditLog;
 };

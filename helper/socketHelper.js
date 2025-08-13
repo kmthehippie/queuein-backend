@@ -23,6 +23,7 @@ const sendQueueUpdateForHost = async (io, queueIdRoom) => {
     await Promise.all(
       Array.from(room).map(async (socketId) => {
         const socket = io.sockets.sockets.get(socketId);
+        console.log("All sockets: ", socket.sockets);
         if (socket && socket.staff) {
           console.log(
             `Emitting host_queue_update to staff socket ${socketId} in room ${queueIdRoom}`
@@ -184,8 +185,58 @@ const sendQueueUpdate = async (io, queueId) => {
   }
 };
 
+const sendCustomerJoined = async (io, data) => {
+  console.log(
+    "Successfully passed data through socket when joined queue!",
+    data
+  );
+  const queueIdRoom = data.queueId;
+  let actualQueueId;
+  if (queueIdRoom) {
+    actualQueueId = data.queueId.slice(6);
+  }
+  const customerName = data.customerName;
+  const customerPax = data.customerPax;
+  const room = io.sockets.adapter.rooms.get(queueIdRoom);
+  let dataToEmit = { customerName: customerName, customerPax: customerPax };
+  if (room) {
+    try {
+      const queue = await findAllQueueItemsByQueueId(actualQueueId);
+      if (queue && queue.queueItems.length > 0) {
+        dataToEmit.queueItems = queue.queueItems;
+      }
+    } catch (err) {
+      console.error("Error fetching queue items in socket ", err);
+      return;
+    }
+    if (!dataToEmit) {
+      console.log("No active queue items found for queue room: ", queueIdRoom);
+      dataToEmit = [];
+    }
+
+    await Promise.all(
+      Array.from(room).map(async (socketId) => {
+        const socket = io.sockets.sockets.get(socketId);
+        console.log("All sockets: ", socket.sockets);
+        if (socket && socket.staff) {
+          console.log(
+            `Emitting new_customer_joined to staff socket ${socketId} in room ${queueIdRoom}`
+          );
+          socket.emit("new_customer_joined", dataToEmit);
+          socket.emit("customer_pax_changed", dataToEmit);
+        } else if (socket) {
+          console.log(
+            `Socket ${socketId} in room ${queueIdRoom} is not a valid staff (or doesn't have staff property)`
+          );
+        }
+      })
+    );
+  }
+};
+
 module.exports = {
   sendQueueUpdateForHost,
   getProcessedQueueData,
   sendQueueUpdate,
+  sendCustomerJoined,
 };

@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const allowedOrigins = require("./config/allowedOrigins");
 const http = require("http");
 const setupSocket = require("./socket");
+const startCronJobs = require("./helper/cronJobs");
 
 app.use(express.static(path.join(__dirname, "/public")));
 
@@ -40,6 +41,7 @@ app.set("io", io);
 
 server.listen(process.env.PORT, () => {
   console.log(`App is now listening on port ${process.env.PORT}`);
+  startCronJobs();
 });
 
 //* App.listen removed because server.listen is working instead

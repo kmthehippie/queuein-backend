@@ -8,6 +8,7 @@ const {
   getProcessedQueueData,
   sendQueueUpdate,
   sendQueueUpdateForHost,
+  sendCustomerJoined,
 } = require("./helper/socketHelper");
 
 const setupSocket = (server) => {
@@ -40,9 +41,13 @@ const setupSocket = (server) => {
       }
     });
 
-    socket.on("join_queue", (queueId) => {
-      console.log(`Socket ${socket.id} joined the 1:many room: ${queueId}`);
-      socket.join(queueId);
+    socket.on("join_queue", (data) => {
+      console.log(
+        `Socket ${socket.id} joined the 1:many room: ${data.queueId}`
+      );
+      socket.join(data.queueId);
+      console.log(data);
+      sendCustomerJoined(io, data);
     });
 
     socket.on("set_queue_item_id", (queueItemId) => {
@@ -59,10 +64,11 @@ const setupSocket = (server) => {
 
     socket.on("set_staff_info", async (info) => {
       console.log(
-        `Socket ${socket.id} has a staff info: ${info.name} ${info.role}`
+        `Socket ${socket.id} has a staff info: ${info.staffName} ${info.staffRole}`
       );
       //validate the host
       const staffValid = await checkStaffValidity(info);
+      console.log("Staff valid from db", staffValid);
       if (staffValid) {
         console.log("Staff is valid ", staffValid.name, staffValid.role);
         socket.staff = info;
@@ -109,10 +115,10 @@ const setupSocket = (server) => {
       }
     });
 
-    socket.on("cust_update_host", async (queueId) => {
-      console.log("Trying to update the host from customer");
-      sendQueueUpdateForHost(io, `queue_${queueId}`);
-    });
+    // socket.on("cust_update_host", async (queueId) => {
+    //   console.log("Trying to update the host from customer");
+    //   sendQueueUpdateForHost(io, `queue_${queueId}`);
+    // });
   });
   return io;
 };

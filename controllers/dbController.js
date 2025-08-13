@@ -1098,7 +1098,9 @@ exports.check_role_post = [
     if (!pwValid) {
       return res
         .status(403)
-        .json({ message: "Forbidden: Verification Failed." });
+        .json({
+          message: "Forbidden: Verification Failed. Password is incorrect.",
+        });
     }
 
     const staffRoleValue = ROLE_HIERARCHY[staff.role];
@@ -1230,8 +1232,6 @@ exports.audit_logs_outlet_get = [
     };
     try {
       const auditLogs = await findAuditLogsByOutletId(data);
-      console.log("Audit logs: ", auditLogs);
-
       return res.status(200).json(auditLogs);
     } catch (error) {
       console.error("Error, no audit logs found: ", error);
