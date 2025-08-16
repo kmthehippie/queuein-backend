@@ -613,7 +613,6 @@ exports.updatePaxByQueueItemId = async (data) => {
       customer: true,
     },
   });
-  console.log("Updated queueItem: ", updatedQueueItem);
   return updatedQueueItem;
 };
 

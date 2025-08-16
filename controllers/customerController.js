@@ -25,6 +25,10 @@ const {
   findQueueItemByContactNumberAndQueueId,
   createAQueueItemVIP,
 } = require("../db/authQueries");
+const {
+  sendQueueUpdate,
+  sendQueueUpdateForHost,
+} = require("../helper/socketHelper");
 
 exports.check_local_storage = [
   body("queueItemId")
@@ -273,6 +277,10 @@ exports.customer_form_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
+
+      const io = req.app.get("io");
+      await sendQueueUpdateForHost(io, `host_${newQueueItem.queueId}`);
+
       return res.status(201).json({
         message: `Welcome ${newQueueItem.name}. You have entered the queue.`,
         queueItem: newQueueItem,
@@ -283,10 +291,7 @@ exports.customer_form_post = [
         number: customerNumber,
         accountId: account.id,
       });
-      console.log(
-        "Is there a customer existing when join queue? ",
-        existingCustomer
-      );
+
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
           name: customerName,
@@ -295,7 +300,6 @@ exports.customer_form_post = [
           accountId: account.id,
         };
         customerToLink = await createACustomer(dataForNewCustomer);
-        console.log("Created a new customer when join queue: ", customerToLink);
         if (!customerToLink) {
           return res
             .status(400)
@@ -324,6 +328,18 @@ exports.customer_form_post = [
           .status(400)
           .json({ message: "Error creating a new queue item for VIP" });
       }
+      const io = req.app.get("io");
+      const notice = {
+        action: "join",
+        queueItemId: newQueueItem.id,
+      };
+      if (newQueueItem)
+        await sendQueueUpdateForHost(
+          io,
+          `host_${newQueueItem.queueId}`,
+          notice
+        );
+
       return res.status(201).json({
         message: `Welcome ${newQueueItem.name}. You have entered the queue.`,
         queueItem: newQueueItem,
@@ -351,7 +367,10 @@ exports.customer_quit_queue_post = [
     };
     const updateQueueItem = await updateQueueItemByQueueItemId(data);
     console.log("Updated queue items: ", updateQueueItem);
+
     if (updateQueueItem) {
+      const io = req.app.get("io");
+      await sendQueueUpdateForHost(io, `host_${updateQueueItem.queueId}`);
       res.status(201).json({
         message: `${updateQueueItem.name}, you have successfully left your queue. See you again soon!`,
       });
@@ -382,7 +401,16 @@ exports.customer_update_pax_post = [
       queueItemId: params.queueItemId,
     };
     const updatePax = await updatePaxByQueueItemId(dataForUpdate);
-    console.log("This is the updated queueItem after pax update :", updatePax);
+
+    //! SEND UPDATE VIA IO TO UPDATE PAX
+
+    const io = req.app.get("io");
+    const notice = {
+      action: "pax",
+      queueItemId: updatePax.id,
+    };
+    await sendQueueUpdateForHost(io, `host_${updatePax.queueId}`, notice);
+
     res.status(201).json({
       message: `Updated pax to ${pax} for ${params.queueItemId}`,
       queueItem: updatePax,

@@ -1,7 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const { header, body, param, check } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
-const { sendQueueUpdateForHost } = require("../helper/socketHelper");
+const {
+  sendQueueUpdateForHost,
+  sendQueueUpdate,
+} = require("../helper/socketHelper");
 const {
   findOutletsByAcctId,
   createOutlet,
@@ -446,11 +449,6 @@ exports.new_customer_post = [
 
     const io = req.app.get("io");
 
-    const getUpdatedQueueItems = async (currQueueId) => {
-      const updatedQueueData = await findQueueItemsByQueueId(currQueueId);
-      return updatedQueueData;
-    };
-
     const dataToFindQueueItem = {
       queueId: queueId,
       contactNumber: customerNumber,
@@ -469,17 +467,7 @@ exports.new_customer_post = [
 
     if (activeExistingQueueItem) {
       if (customerName === activeExistingQueueItem.name) {
-        const updatedQueueItems = await getUpdatedQueueItems(queueId);
-        console.log("Updated queue items: ", updatedQueueItems);
-
-        if (io) {
-          //! HERE ISSUE
-          await sendQueueUpdateForHost(io, `queue_${queueId}`);
-          io.to(`queue_${queueId}`).emit(
-            "host_queue_update",
-            updatedQueueItems
-          );
-        }
+        await sendQueueUpdateForHost(io, `host_${queueId}`);
         return res.status(200).json({
           message: `${customerName} has an existing active queue item at ${activeExistingQueueItem.position} position`,
           queueItem: activeExistingQueueItem,
@@ -501,6 +489,8 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
+
+      await sendQueueUpdateForHost(io, `host_${queueId}`);
       return res.status(201).json({
         message: `Success! You have created a queue item for ${customerName}.`,
         queueItem: newQueueItem,
@@ -548,6 +538,8 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item for VIP" });
       }
+
+      await sendQueueUpdateForHost(io, `host_${queueId}`);
       return res.status(201).json({
         message: `Success. ${customerName} has entered the queue.`,
         queueItem: newQueueItem,
@@ -642,12 +634,14 @@ exports.seat_queue_item_patch = [
       });
     }
 
+    //! MY FIRST WORKING SOCKET FROM HOST -> CUST AND HOST
     const io = req.app.get("io");
     if (updatedQueueItem.queueId) {
-      await sendQueueUpdateForHost(io, `queue_${updatedQueueItem.queueId}`);
+      await sendQueueUpdate(io, `queue_${updatedQueueItem.queueId}`);
+      await sendQueueUpdateForHost(io, `host_${updatedQueueItem.queueId}`);
     }
     if (seated) {
-      io.to(`queueitem_${queueItemId}`).emit("host_seated_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: true,
         queueItemId: queueItemId,
         position: queueItem.position,
@@ -655,7 +649,7 @@ exports.seat_queue_item_patch = [
         message: "You have been seated! Enjoy your meal!",
       });
     } else {
-      io.to(`queueitem_${queueItemId}`).emit("host_seated_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: false,
         queueItemId: queueItemId,
         position: queueItem.position,
@@ -743,9 +737,9 @@ exports.call_queue_item_patch = [
     const io = req.app.get("io");
     if (calledStatus) {
       if (queueId) {
-        await sendQueueUpdateForHost(io, `queue_${queueId}`);
+        await sendQueueUpdateForHost(io, `host_${queueId}`);
       }
-      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: true,
         queueItemId: queueItemId,
         position: position,
@@ -754,7 +748,7 @@ exports.call_queue_item_patch = [
         calledAt: updateCalled.calledAt,
       });
     } else {
-      io.to(`queueitem_${queueItemId}`).emit("host_called_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: false,
         queueItemId: queueItemId,
         position: position,
@@ -861,10 +855,11 @@ exports.no_show_queue_item_patch = [
 
     const io = req.app.get("io");
     if (updatedQueueItem.queueId) {
-      await sendQueueUpdateForHost(io, `queue_${updatedQueueItem.queueId}`);
+      await sendQueueUpdate(io, `queue_${updatedQueueItem.queueId}`);
+      await sendQueueUpdateForHost(io, `host_${updatedQueueItem.queueId}`);
     }
     if (noShow) {
-      io.to(`queueitem_${queueItemId}`).emit("host_noShow_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: true,
         queueItemId: queueItemId,
         position: null,
@@ -873,7 +868,7 @@ exports.no_show_queue_item_patch = [
           "You have been marked as no show. If you are still at the store, please go to the host immediately to rectify the situation.",
       });
     } else {
-      io.to(`queueitem_${queueItemId}`).emit("host_noShow_cust", {
+      io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: false,
         queueItemId: queueItemId,
         position: null,
@@ -1096,11 +1091,9 @@ exports.check_role_post = [
 
     const pwValid = await validatePw(staff.password, password);
     if (!pwValid) {
-      return res
-        .status(403)
-        .json({
-          message: "Forbidden: Verification Failed. Password is incorrect.",
-        });
+      return res.status(403).json({
+        message: "Forbidden: Verification Failed. Password is incorrect.",
+      });
     }
 
     const staffRoleValue = ROLE_HIERARCHY[staff.role];

@@ -8,7 +8,7 @@ const {
   getProcessedQueueData,
   sendQueueUpdate,
   sendQueueUpdateForHost,
-  sendCustomerJoined,
+  // sendCustomerJoined,
 } = require("./helper/socketHelper");
 
 const setupSocket = (server) => {
@@ -41,13 +41,12 @@ const setupSocket = (server) => {
       }
     });
 
-    socket.on("join_queue", (data) => {
-      console.log(
-        `Socket ${socket.id} joined the 1:many room: ${data.queueId}`
-      );
-      socket.join(data.queueId);
-      console.log(data);
-      sendCustomerJoined(io, data);
+    //CUSTOMER'S SOCKETS
+    socket.on("join_queue", (queueId) => {
+      console.log(`Socket ${socket.id} joined the 1:many room: ${queueId}`);
+      socket.join(queueId);
+      console.log(queueId);
+      // sendCustomerJoined(io, queueId);
     });
 
     socket.on("set_queue_item_id", (queueItemId) => {
@@ -60,6 +59,12 @@ const setupSocket = (server) => {
     socket.on("join_queue_item_id", (queueItemId) => {
       console.log(`Socket ${socket.id} is joining the 1:1 room ${queueItemId}`);
       socket.join(queueItemId);
+    });
+
+    //STAFF'S SOCKETS
+    socket.on("join_host", (hostQueueId) => {
+      console.log("Staff that joined this queue: ", hostQueueId);
+      socket.join(hostQueueId);
     });
 
     socket.on("set_staff_info", async (info) => {
@@ -75,15 +80,15 @@ const setupSocket = (server) => {
       }
     });
 
+    //RECEIVE CUSTOMER REQUESTS
     socket.on("queue_update", (queueId) => {
       console.log("Update the queue info from here ", queueId);
-      sendQueueUpdate(io, `queue_${queueId}`);
-      sendQueueUpdateForHost(io, `queue_${queueId}`);
+      sendQueueUpdate(io, `${queueId}`);
     });
 
     socket.on("leave_queue", async (queueId) => {
       console.log("Trying to leave queue", queueId);
-      sendQueueUpdate(io, `queue_${queueId}`);
+      sendQueueUpdate(io, `${queueId}`);
       socket.leave(queueId);
     });
 
@@ -115,10 +120,11 @@ const setupSocket = (server) => {
       }
     });
 
-    // socket.on("cust_update_host", async (queueId) => {
-    //   console.log("Trying to update the host from customer");
-    //   sendQueueUpdateForHost(io, `queue_${queueId}`);
-    // });
+    //RECEIVE STAFF REQUEST
+    socket.on("host_update", (hostQueueId) => {
+      console.log("Trying to update host using hostQueue Id", hostQueueId);
+      sendQueueUpdateForHost(io, `${hostQueueId}`);
+    });
   });
   return io;
 };
