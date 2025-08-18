@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "dev": "nodemon app.js",
-    "start": "node app.js"
+    "build": "prisma generate",
+    "start": "node app.js",
+    "postinstall": "prisma generate"
   },
   "repository": {
     "type": "git"
