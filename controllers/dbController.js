@@ -263,8 +263,9 @@ exports.new_outlet_post = [
       imgUrl: imgUrl,
     };
     const createNewOutlet = await createOutlet(data);
+    const findAcctSlug = await findAccountByAccountId(req.params.accountId);
 
-    console.log("What is the outlet id? ", createNewOutlet.id);
+    console.log("What is the acct slug? ", findAcctSlug);
 
     const dataForQRCode = {
       outletId: createNewOutlet.id,

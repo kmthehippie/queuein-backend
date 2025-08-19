@@ -748,6 +748,7 @@ exports.updateStaffByIdAndAcctId = async (data) => {
 };
 
 exports.deleteOutletByIdAndAcctId = async (data) => {
+  console.log("Trying to delete outlet by Id and acct id", data);
   const deleteOutlet = await prisma.outlet.delete({
     where: {
       id: data.outletId,

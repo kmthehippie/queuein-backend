@@ -104,7 +104,7 @@ model Outlet {
 
 model Queue {
   id         String      @id @unique @default(uuid())
-  outlet     Outlet      @relation(fields: [outletId], references: [id])
+  outlet     Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
   outletId   Int
   queueItems QueueItem[]
   startTime  DateTime    @default(now())
@@ -134,7 +134,7 @@ model Customer {
 
 model QueueItem {
   id            String    @id @unique @default(uuid())
-  queue         Queue     @relation(fields: [queueId], references: [id])
+  queue         Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
   queueId       String
   customerId    String?
   customer      Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
