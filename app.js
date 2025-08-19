@@ -36,6 +36,10 @@ require("./config/passportConfig");
 
 app.use("/", indexRouter);
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 const server = http.createServer(app);
 const io = setupSocket(server);
 app.set("io", io);
