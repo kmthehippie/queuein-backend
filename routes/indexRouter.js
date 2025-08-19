@@ -4,14 +4,7 @@ const authController = require("../controllers/authController");
 const refreshController = require("../controllers/refreshController");
 const customerController = require("../controllers/customerController");
 const dbController = require("../controllers/dbController");
-const passport = require("passport");
 const jwt = require("../config/jwt");
-const asyncHandler = require("express-async-handler");
-const {
-  findOAuthTokenByOID,
-  findAccountByAccountId,
-  createQueue,
-} = require("../db/authQueries");
 const rateLimit = require("express-rate-limit");
 
 const limiter = rateLimit({
