@@ -2,8 +2,9 @@ const cloudinary = require("../config/cloudinaryConfig");
 const qrCode = require("qrcode");
 const { updateQRCodeForOutletId } = require("../db/authQueries");
 
-const generateQRCode = async ({ outletId, accountId }) => {
-  const outletUrl = `${process.env.DOMAIN_NAME}/db/${accountId}/outlets/qr/${outletId}?source=qr`;
+const generateQRCode = async ({ outletId, accountId, acctSlug }) => {
+  console.log("Generating QR Code: ", acctSlug, accountId, outletId);
+  const outletUrl = `${process.env.DOMAIN_NAME}/${acctSlug}/outlet/${outletId}?source=qr`;
   const genQRCodeImage = await qrCode.toDataURL(outletUrl, {
     type: "image/png",
     width: 250,
@@ -14,13 +15,15 @@ const generateQRCode = async ({ outletId, accountId }) => {
     public_id: `${accountId}-qr-${outletId}`,
   });
 
-  const updateOutlet = await updateQRCodeForOutletId({
-    outletId: parseInt(outletId),
-    accountId: accountId,
-    qrCode: uploadResult.secure_url,
-  });
-  console.log("Outlet has been updated with qr code url: ", updateOutlet);
-  return updateOutlet;
+  if (uploadResult) {
+    const updateOutlet = await updateQRCodeForOutletId({
+      outletId: parseInt(outletId),
+      accountId: accountId,
+      qrCode: uploadResult.secure_url,
+    });
+    console.log("Outlet has been updated with qr code url: ", updateOutlet);
+    return updateOutlet;
+  }
 };
 
 module.exports = { generateQRCode };

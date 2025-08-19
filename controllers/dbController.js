@@ -264,12 +264,15 @@ exports.new_outlet_post = [
     };
     const createNewOutlet = await createOutlet(data);
     const findAcctSlug = await findAccountByAccountId(req.params.accountId);
+    delete findAcctSlug.password;
+    delete findAcctSlug.companyEmail;
 
     console.log("What is the acct slug? ", findAcctSlug);
 
     const dataForQRCode = {
       outletId: createNewOutlet.id,
       accountId: req.params.accountId,
+      acctSlug: findAcctSlug.slug,
     };
     const genQR = await generateQRCode(dataForQRCode);
     console.log(genQR);
@@ -1210,7 +1213,14 @@ exports.qrcode_outlet_post = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { accountId, outletId } = req.params;
-    const genQR = generateQRCode({ outletId, accountId });
+    const accountSlug = await findAccountByAccountId(accountId);
+    delete accountSlug.password;
+    delete accountSlug.companyEmail;
+    const genQR = generateQRCode({
+      outletId,
+      accountId,
+      acctSlug: accountSlug.slug,
+    });
     console.log(genQR);
   }),
 ];
