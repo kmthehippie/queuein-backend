@@ -640,9 +640,17 @@ exports.seat_queue_item_patch = [
 
     //! MY FIRST WORKING SOCKET FROM HOST -> CUST AND HOST
     const io = req.app.get("io");
+    const notice = {
+      action: "seated",
+      queueItemId: updatedQueueItem.id,
+    };
     if (updatedQueueItem.queueId) {
       await sendQueueUpdate(io, `queue_${updatedQueueItem.queueId}`);
-      await sendQueueUpdateForHost(io, `host_${updatedQueueItem.queueId}`);
+      await sendQueueUpdateForHost(
+        io,
+        `host_${updatedQueueItem.queueId}`,
+        notice
+      );
     }
     if (seated) {
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
@@ -739,9 +747,13 @@ exports.call_queue_item_patch = [
     const position = updateCalled.position;
 
     const io = req.app.get("io");
+    const notice = {
+      action: "called",
+      queueItemId: updateCalled.id,
+    };
     if (calledStatus) {
       if (queueId) {
-        await sendQueueUpdateForHost(io, `host_${queueId}`);
+        await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
       }
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: true,
