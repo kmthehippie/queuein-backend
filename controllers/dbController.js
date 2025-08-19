@@ -471,7 +471,11 @@ exports.new_customer_post = [
 
     if (activeExistingQueueItem) {
       if (customerName === activeExistingQueueItem.name) {
-        await sendQueueUpdateForHost(io, `host_${queueId}`);
+        const notice = {
+          action: "join",
+          queueItemId: activeExistingQueueItem.id,
+        };
+        await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
         return res.status(200).json({
           message: `${customerName} has an existing active queue item at ${activeExistingQueueItem.position} position`,
           queueItem: activeExistingQueueItem,
@@ -493,8 +497,11 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
-
-      await sendQueueUpdateForHost(io, `host_${queueId}`);
+      const notice = {
+        action: "join",
+        queueItemId: newQueueItem.id,
+      };
+      await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
       return res.status(201).json({
         message: `Success! You have created a queue item for ${customerName}.`,
         queueItem: newQueueItem,
@@ -542,8 +549,11 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item for VIP" });
       }
-
-      await sendQueueUpdateForHost(io, `host_${queueId}`);
+      const notice = {
+        action: "join",
+        queueItemId: newQueueItem.id,
+      };
+      await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
       return res.status(201).json({
         message: `Success. ${customerName} has entered the queue.`,
         queueItem: newQueueItem,

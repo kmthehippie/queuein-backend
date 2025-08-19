@@ -53,7 +53,12 @@ exports.normal_login = [
   passport.authenticate("local", { session: false }),
   asyncHandler(async (req, res, next) => {
     const accountExist = req.user;
-    console.log("Does account from passport exist? ", req.user);
+    delete accountExist.password;
+
+    console.log(
+      "Account exists as req.user after passport authenticates it: ",
+      accountExist
+    );
     const { rememberDevice } = req.body;
     const userAgent = req.get("User-Agent");
     const accessToken = jwt.generateAccessToken(accountExist);
