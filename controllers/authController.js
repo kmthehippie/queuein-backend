@@ -1,5 +1,5 @@
 const asyncHandler = require("express-async-handler");
-const { header, body, validationResult } = require("express-validator");
+const { header, body } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
 const passwordUtils = require("../config/passwordUtils");
 const jwt = require("../config/jwt");
@@ -248,8 +248,8 @@ exports.normal_register_form_post = [
 exports.normal_logout = [
   asyncHandler(async (req, res, next) => {
     const { accountId } = req.params;
-    const refreshToken = req.cookies.jwt;
     const oid = req.cookies.oid;
+    const refreshToken = req.cookies.jwt;
 
     const cookieOptions = {
       httpOnly: true,
