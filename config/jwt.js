@@ -47,6 +47,7 @@ exports.authAccessToken = (req, res, next) => {
 };
 
 exports.refreshTokenDecoded = (req, res, next) => {
+  console.log("Refresh token decoded: ", req.cookies.jwt);
   const refreshToken = req.cookies.jwt;
   if (!refreshToken) {
     return res.status(401).json({ message: "Refresh Token Required" });

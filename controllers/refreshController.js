@@ -13,6 +13,8 @@ exports.handle_refresh_token = [
     const refreshToken = req.cookies.jwt;
     const oid = req.cookies.oid;
     const decoded = req.decodedRefreshToken;
+    console.log("refreshing: ", refreshToken, oid, decoded);
+
     if (decoded && decoded.exp) {
       const time = Math.floor(Date.now() / 1000);
       console.log(

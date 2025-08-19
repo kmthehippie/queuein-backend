@@ -2,6 +2,7 @@ const allowedOrigins = require("../config/allowedOrigins");
 
 const corsCredentials = (req, res, next) => {
   const origin = req.headers.origin;
+  console.log("The allowed origins: ", allowedOrigins);
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);

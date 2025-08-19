@@ -28,6 +28,7 @@ const sendServerError = (res, message) => {
 const sendInvalidCredentialsError = (res) => {
   return res.status(409).json({ message: "Invalid credentials" });
 };
+
 exports.normal_login = [
   //Validate the header
   header("User-Agent")
@@ -94,7 +95,7 @@ exports.normal_login = [
         }
       } catch (error) {
         console.error("Error handling OAuthToken:", error);
-        return sendServerError(res, "Database error during login.");
+        return sendInvalidCredentialsError(res);
       }
     } else {
       setAuthCookies(req, res, next, refreshToken);
@@ -252,7 +253,7 @@ exports.normal_logout = [
 
     const cookieOptions = {
       httpOnly: true,
-      secure: "None", // Set to true in production
+      secure: true, // Set to true in production
       sameSite: "None",
       path: "/",
     };
@@ -261,11 +262,10 @@ exports.normal_logout = [
       const oAuthTokenExist = await findOAuthTokenByRefreshToken(refreshToken);
       if (oAuthTokenExist) {
         const data = {
-          oid: oid,
-          refreshToken: refreshToken,
-          accountId: accountId,
+          oid: oAuthTokenExist.id,
+          refreshToken: oAuthTokenExist.refreshToken,
+          accountId: oAuthTokenExist.accountId,
         };
-        console.log("Data for normal logout: ", data);
         await deleteOAuthToken(data);
       } else {
         console.log("No refresh token or OID cookie found to invalidate.");
