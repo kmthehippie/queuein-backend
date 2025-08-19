@@ -16,9 +16,6 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
-router.get("/", (req, res, next) => {
-  res.send("Home");
-});
 router.get("/landingPage/:acctSlug", customerController.landing_page);
 router.get(
   "/outletLandingPage/:acctSlug/:outletId",
