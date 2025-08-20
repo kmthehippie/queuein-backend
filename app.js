@@ -34,6 +34,8 @@ app.use(cookieParser()); // Apply cookie-parser AFTER CORS
 app.use(passport.initialize());
 require("./config/passportConfig");
 
+app.set("trust proxy", 1);
+
 app.use("/", indexRouter);
 
 const server = http.createServer(app);
