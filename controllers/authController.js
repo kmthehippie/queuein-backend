@@ -78,8 +78,8 @@ exports.normal_login = [
           // Device already remembered, update tokens
           await updateOAuthToken({
             id: existingOAuthToken.id,
-            accessToken,
-            refreshToken,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
             lastLoggedIn: new Date(),
           });
           setAuthCookies(req, res, next, refreshToken, existingOAuthToken.id);
@@ -90,10 +90,10 @@ exports.normal_login = [
           );
           const newOAuthToken = await createOAuthToken({
             provider: "LOCAL",
-            accessToken,
-            refreshToken,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
             accountId: accountExist.id,
-            userAgent,
+            userAgent: userAgent,
             lastLoggedIn: new Date(),
           });
           setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
