@@ -52,7 +52,6 @@ exports.sidenav_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log(`Entered side nav outlet get: `, req.params.accountId);
     const accountId = req.params.accountId;
     const outlets = await findOutletsByAcctId(accountId);
     const arrToReturn = outlets.map((outlet) => ({
@@ -74,7 +73,6 @@ exports.all_outlets_get = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
-    console.log("all outlets get in dbcontroller account id: ", accountId);
     const outlets = await findOutletsByAcctId(accountId);
     if (!outlets) {
       return res
@@ -142,11 +140,8 @@ exports.update_outlet_patch = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const params = req.params;
-    console.log("These are the params: ", params);
-    console.log("This is the body: ", req.body);
 
     const imgUrl = req.file ? req.file.path : null;
-    console.log("This is the image URL from Cloudinary: ", imgUrl);
     const defaultEstWaitTime = req.body.defaultEstWaitTime;
     let parsedEstWaitTime = null;
     const dataToUpdate = {
@@ -164,8 +159,6 @@ exports.update_outlet_patch = [
       dataToUpdate.imgUrl = imgUrl;
     }
 
-    console.log("This is the dataToUpdate ", dataToUpdate);
-
     const updatedOutlet = await updateOutletByOutletAndAcctId(dataToUpdate);
     if (!updatedOutlet) {
       return res
@@ -182,7 +175,6 @@ exports.outlet_delete = [
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Inside controller's delete outlet");
     const data = {
       outletId: parseInt(req.params.outletId),
       accountId: req.params.accountId,
@@ -251,11 +243,7 @@ exports.new_outlet_post = [
     .withMessage("Hours cannot be an empty string if provided."),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("We are in the new outlet post", req.params);
-    console.log(req.body);
-
     const imgUrl = req.file ? req.file.path : null;
-    console.log("This is the image URL from Cloudinary: ", imgUrl);
     const data = {
       accountId: req.params.accountId,
       ...req.body,
@@ -267,15 +255,12 @@ exports.new_outlet_post = [
     delete findAcctSlug.password;
     delete findAcctSlug.companyEmail;
 
-    console.log("What is the acct slug? ", findAcctSlug);
-
     const dataForQRCode = {
       outletId: createNewOutlet.id,
       accountId: req.params.accountId,
       acctSlug: findAcctSlug.slug,
     };
     const genQR = await generateQRCode(dataForQRCode);
-    console.log(genQR);
     if (!createNewOutlet) {
       return res.status(404).json({ message: "Error creating a new outlet" });
     } else {
@@ -308,7 +293,6 @@ exports.queue_activity_get = [
 
     if (activeQueue.length > 0) {
       relevantQueue = activeQueue[0];
-      console.log("Relevant queue is the activeQueue", relevantQueue);
     } else {
       const now = new Date();
       const fortyEightHoursInMilliseconds = 48 * 60 * 60 * 1000;
@@ -330,16 +314,11 @@ exports.queue_activity_get = [
 
         if (activeQueueItemCount > 0) {
           relevantQueue = potentialInactiveQueue[0];
-          console.log(
-            "This is the relevant queue when queue is inactive: ",
-            relevantQueue
-          );
         }
       }
     }
 
     if (relevantQueue) {
-      console.log("Returning status 200 and queue: ", relevantQueue);
       return res.status(200).json({ outlet: outlet, queue: relevantQueue });
     } else {
       return res.status(200).json({ outlet: outlet, queue: null });
@@ -397,7 +376,6 @@ exports.new_queue_post = [
       outletId: parseInt(req.params.outletId),
       ...req.body,
     };
-    console.log("We are trying to create new queue ", data);
     const startQueue = await createQueue(data);
     if (startQueue) {
       return res.status(201).json(startQueue);
@@ -425,8 +403,6 @@ exports.end_queue_post = [
     .withMessage("Queue params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Inside end queue post");
-
     const data = req.params;
     const endQueue = await endQueueByQueueId(data);
     if (endQueue) {
@@ -616,10 +592,7 @@ exports.seat_queue_item_patch = [
         inactiveAt: null,
       };
     }
-    console.log(
-      "This is the data to update when handling seated: ",
-      dataToUpdate
-    );
+
     let updatedQueueItem;
     try {
       updatedQueueItem = await updateQueueItem({
@@ -719,11 +692,6 @@ exports.call_queue_item_patch = [
         dataToUpdate.calledAt = new Date();
       }
 
-      console.log(
-        "This is the data to update when trying to call: ",
-        dataToUpdate
-      );
-
       updateCalled = await updateCallQueueItem({
         queueItemId,
         prevVersion,
@@ -757,12 +725,13 @@ exports.call_queue_item_patch = [
     const position = updateCalled.position;
 
     const io = req.app.get("io");
-    const notice = {
-      action: "called",
-      queueItemId: updateCalled.id,
-    };
+
     if (calledStatus) {
       if (queueId) {
+        const notice = {
+          action: "called",
+          queueItemId: updateCalled.id,
+        };
         await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
       }
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
@@ -774,6 +743,13 @@ exports.call_queue_item_patch = [
         calledAt: updateCalled.calledAt,
       });
     } else {
+      if (queueId) {
+        const notice = {
+          action: "called",
+          queueItemId: updateCalled.id,
+        };
+        await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+      }
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: false,
         queueItemId: queueItemId,
@@ -845,10 +821,7 @@ exports.no_show_queue_item_patch = [
         inactiveAt: null,
       };
     }
-    console.log(
-      "This is the data to update while handling no show: ",
-      dataToUpdate
-    );
+
     let updatedQueueItem;
 
     try {
@@ -857,7 +830,6 @@ exports.no_show_queue_item_patch = [
         prevVersion,
         dataToUpdate,
       });
-      console.log("Trying to update queue item (no show) : ", updatedQueueItem);
     } catch (error) {
       console.error("There was an error updating queue item! ", error);
       if (
@@ -933,13 +905,10 @@ exports.new_staff_post = [
   body("email").isEmail().trim().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("We got into the new staff post", req.body);
     const accountId = req.params.accountId;
     const body = { ...req.body };
-    console.log("Body: ", body);
     //need to generate password
     const pw = await generatePw(body.password);
-    console.log("New password ", pw);
     const data = {
       accountId: accountId,
       name: body.name,
@@ -994,7 +963,6 @@ exports.staff_get = [
     delete staffInfo.password;
 
     if (staffResponse) {
-      console.log("Found the staff info: ", staffResponse);
       return res.status(200).json(staffResponse);
     } else {
       return res.status(404).json({ message: "Error, could not find staff." });
@@ -1020,10 +988,8 @@ exports.staff_patch = [
     .escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Trying to update staff info");
     const params = req.params;
     const bodyData = req.body;
-    console.log(params, bodyData);
     //1. FIND EXISTING STAFF
     const dataToFindStaff = {
       accountId: params.accountId,
@@ -1044,7 +1010,6 @@ exports.staff_patch = [
       }
       if (bodyData.password !== undefined && bodyData.password !== "") {
         const hashedPW = await generatePw(bodyData.password);
-        console.log("password post hash", hashedPW);
         updateFields.password = hashedPW;
       }
 
@@ -1087,10 +1052,6 @@ exports.check_role_post = [
   body("outletId").escape().trim(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log(
-      "These are the body from check role post -- staff auth: ",
-      req.body
-    );
     const { name, password, actionPurpose, minimumRole, outletId } = req.body;
     const { accountId } = req.params;
     const dataToFindStaff = {
@@ -1110,7 +1071,6 @@ exports.check_role_post = [
 
     const staff = await getStaffByNameAndAccount(dataToFindStaff);
 
-    console.log("Is there a staff? ", staff);
     if (!staff) {
       return res.status(404).json({ message: "Staff not found" });
     }
@@ -1134,7 +1094,6 @@ exports.check_role_post = [
       if (outletId) {
         dataForAuditLog.outletId = parseInt(outletId);
       }
-      console.log("These are the data to create audit log: ", dataForAuditLog);
 
       await createAuditLog(dataForAuditLog);
 
@@ -1163,7 +1122,6 @@ exports.account_details_get = [
       const { accountId } = req.params;
       const account = await findAccountByAccountId(accountId);
       if (account) {
-        console.log(account);
         delete account.password;
         return res.status(200).json(account);
       }
@@ -1179,14 +1137,7 @@ exports.account_details_patch = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { accountId } = req.params;
-    const { slug, companyName } = req.body;
-
-    const params = req.params;
-    console.log("These are the params: ", params);
-    console.log("This is the body: ", req.body);
-
     const logo = req.file ? req.file.path : null;
-    console.log("This is the image URL from Cloudinary: ", logo);
 
     const dataToUpdate = {
       accountId: accountId,
@@ -1197,15 +1148,13 @@ exports.account_details_patch = [
       dataToUpdate.logo = logo;
     }
 
-    console.log("This is the dataToUpdate ", dataToUpdate);
-
     const updatedAccount = await updateAccount(dataToUpdate);
     if (!updatedAccount) {
       return res
         .status(404)
         .json({ message: "Error. Was not able to update the account data." });
     } else {
-      console.log("Completed update of account: ", updatedAccount);
+      delete updateAccount.password;
       return res.status(201).json(updatedAccount);
     }
   }),
@@ -1243,7 +1192,6 @@ exports.qrcode_outlet_post = [
       accountId,
       acctSlug: accountSlug.slug,
     });
-    console.log(genQR);
   }),
 ];
 exports.audit_logs_outlet_get = [

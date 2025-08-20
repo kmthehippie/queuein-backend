@@ -22,8 +22,6 @@ const sendQueueUpdateForHost = async (io, queueIdRoom, notice) => {
       console.log("No active queue items found for queue room: ", queueIdRoom);
       dataToEmit = {};
     }
-    console.log("Data's notice in socket: ", dataToEmit.notice);
-    console.log("Data to emit length: ", dataToEmit.queueItems.length);
 
     await Promise.all(
       Array.from(room).map(async (socketId) => {
@@ -51,11 +49,6 @@ const getProcessedQueueData = async (queueId, socket) => {
     if (!!queueId) {
       const actualQueueId = queueId.slice(6);
       const queueItemId = socket.queueItemId;
-      console.log(
-        "This is the queue id and queue item id : ",
-        actualQueueId,
-        queueItemId
-      );
 
       //Find all queueItems position in an array.
       const queue = await findAllQueueItemsByQueueId(actualQueueId);
@@ -67,7 +60,6 @@ const getProcessedQueueData = async (queueId, socket) => {
 
       //If queue item id does not exist or there is no actual queue item
       if (!queueItemId || !actualQueueItem) {
-        console.log(`No active queue item found for queue item ${queueItemId}`);
         const queueItemPos = allQueueItems
           .filter((item) => item.active && !item.quit && !item.seated)
           .map((item) => item.position);
@@ -95,7 +87,7 @@ const getProcessedQueueData = async (queueId, socket) => {
           name: actualQueueItem.name || actualQueueItem?.customer.name,
           pax: actualQueueItem.pax,
         };
-        console.log("Customer queue item is inactive", toReturn);
+
         return toReturn;
       }
 
@@ -162,8 +154,7 @@ const sendQueueUpdate = async (io, queueId) => {
           const individualData = await getProcessedQueueData(queueId, socket);
           if (individualData) {
             console.log(
-              `Emitting personalized queue update to socket ${socketId}`,
-              individualData
+              `Emitting personalized queue update to socket ${socketId}`
             );
             socket.emit("queue_update", individualData);
           }

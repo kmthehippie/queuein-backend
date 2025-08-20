@@ -61,9 +61,8 @@ exports.createOAuthToken = async (data) => {
 exports.updateAccount = async (data) => {
   const account = await prisma.account.update({
     companyName: data.companyName,
-    //if password exist then password
-    //if password exist, boolean
   });
+
   return account;
 };
 
@@ -597,7 +596,7 @@ exports.updateQueueItemByQueueItemId = async (data) => {
       quit: data.quit,
     },
   });
-  console.log("Previous queue item is being updated ", updatedQueueItem);
+  console.log("Previous queue item is being updated ", updatedQueueItem.id);
   return updatedQueueItem;
 };
 
@@ -626,7 +625,7 @@ exports.updateOutletByOutletAndAcctId = async (data) => {
     data: updatePayload,
   });
 
-  console.log("Post update of outlet: ", updatedOutlet);
+  console.log("Post update of outlet: ", updatedOutlet.id);
   return updatedOutlet;
 };
 
@@ -645,7 +644,7 @@ exports.updateQueueItem = async ({
       version: { increment: 1 },
     },
   });
-  console.log("Update the queue item ", updateSeated);
+  console.log("Update the queue item ", updateSeated.id);
   return updateSeated;
 };
 
@@ -661,7 +660,7 @@ exports.updateCallQueueItem = async ({
     },
     data: dataToUpdate,
   });
-  console.log("This is the updated called queue item : ", updateCalled);
+  console.log("This is the updated called queue item : ", updateCalled.id);
   return updateCalled;
 };
 
@@ -743,7 +742,7 @@ exports.updateStaffByIdAndAcctId = async (data) => {
     },
     data: data.updateFields,
   });
-  console.log("Data has been updated: ", updateStaff);
+  console.log("Data has been updated: ", updateStaff.name);
   return updateStaff;
 };
 
