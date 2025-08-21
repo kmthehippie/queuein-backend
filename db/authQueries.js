@@ -205,6 +205,7 @@ exports.findOutletsByAcctId = async (data) => {
       account: {
         select: {
           companyName: true,
+          logo: true,
         },
       },
       queues: {
