@@ -22,9 +22,11 @@ exports.createAccount = async (data) => {
       companyEmail: data.companyEmail,
       password: data.password,
       hasPassword: data.hasPassword,
+      businessType: data.businessType,
       slug: data.slug,
     },
   });
+  console.log("New account created: ", account);
   return account;
 };
 
@@ -56,14 +58,6 @@ exports.createOAuthToken = async (data) => {
     },
   });
   return OAuthToken;
-};
-
-exports.updateAccount = async (data) => {
-  const account = await prisma.account.update({
-    companyName: data.companyName,
-  });
-
-  return account;
 };
 
 exports.getStaffByNameAndAccount = async (data) => {
@@ -182,6 +176,8 @@ exports.updateAccount = async (data) => {
     data: {
       companyName: data.companyName,
       logo: data.logo,
+      businessType: data.businessType,
+      slug: data.slug,
     },
   });
   return updateAcct;
@@ -196,18 +192,21 @@ exports.findAccountByName = async (data) => {
   return account;
 };
 
-exports.findOutletsByAcctId = async (data) => {
+exports.findOutletsByAcctIdLandingPage = async (data) => {
   const outlets = await prisma.outlet.findMany({
     where: {
       accountId: data,
     },
+  });
+  return outlets;
+};
+
+exports.findOutletsByAcctId = async (data) => {
+  const outlets = await prisma.outlet.findMany({
+    where: {
+      accountId: data.accountId,
+    },
     include: {
-      account: {
-        select: {
-          companyName: true,
-          logo: true,
-        },
-      },
       queues: {
         where: {
           active: true,
@@ -219,7 +218,22 @@ exports.findOutletsByAcctId = async (data) => {
       },
     },
   });
-  return outlets;
+
+  const account = await prisma.account.findUnique({
+    where: {
+      id: data.accountId,
+    },
+    select: {
+      companyName: true,
+      logo: true,
+      businessType: true,
+    },
+  });
+  const toReturn = {
+    accountInfo: account,
+    outlets: outlets,
+  };
+  return toReturn;
 };
 
 exports.createQueue = async (data) => {
@@ -432,6 +446,7 @@ exports.findAccountBySlug = async (slug) => {
       companyName: account.companyName,
       logo: account.logo,
       slug: account.slug,
+      businessType: account.businessType,
     };
   } else {
     return null;

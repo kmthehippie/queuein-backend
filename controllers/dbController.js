@@ -9,6 +9,7 @@ const {
   findOutletsByAcctId,
   createOutlet,
   updateOutletByOutletAndAcctId,
+  findExistingSlug,
   findActiveQueuesByOutletAndAccountId,
   findAllQueueItemsByQueueId,
   findOutletByIdAndAccountId,
@@ -53,17 +54,20 @@ exports.sidenav_outlet_get = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
-    const outlets = await findOutletsByAcctId(accountId);
-    const arrToReturn = outlets.map((outlet) => ({
-      name: outlet.name,
-      id: outlet.id,
-    }));
-    if (!outlets) {
+    const data = { accountId: accountId };
+    const returned = await findOutletsByAcctId(data);
+    const outlets = returned.outlets;
+    console.log("Outlets in sidenav: ", returned);
+    if (returned) {
+      const arrToReturn = outlets.map((outlet) => ({
+        name: outlet.name,
+        id: outlet.id,
+      }));
+      return res.status(200).json(arrToReturn);
+    } else {
       return res
         .status(404)
         .json({ message: "No outlets associated with this account id" });
-    } else {
-      return res.status(200).json(arrToReturn);
     }
   }),
 ];
@@ -73,13 +77,17 @@ exports.all_outlets_get = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
-    const outlets = await findOutletsByAcctId(accountId);
-    if (!outlets) {
+    const data = {
+      accountId: accountId,
+    };
+    const returned = await findOutletsByAcctId(data);
+    console.log("All outlets: ", returned);
+    if (returned) {
+      return res.status(200).json(returned);
+    } else {
       return res
         .status(404)
         .json({ message: "No outlets associated with this account id" });
-    } else {
-      return res.status(200).json(outlets);
     }
   }),
 ];
@@ -1146,16 +1154,25 @@ exports.account_details_patch = [
   asyncHandler(async (req, res, next) => {
     const { accountId } = req.params;
     const logo = req.file ? req.file.path : null;
-
+    const newSlug = req.body.slug ? req.body.slug : null;
     const dataToUpdate = {
       accountId: accountId,
       ...req.body,
     };
+    if (newSlug) {
+      const existingAccountWithSlug = await findExistingSlug(newSlug);
+      if (existingAccountWithSlug) {
+        return res
+          .status(404)
+          .json({ message: "Error slug is already in use" });
+      } else {
+        dataToUpdate.slug = newSlug;
+      }
+    }
 
     if (logo) {
       dataToUpdate.logo = logo;
     }
-
     const updatedAccount = await updateAccount(dataToUpdate);
     if (!updatedAccount) {
       return res

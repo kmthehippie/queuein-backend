@@ -40,13 +40,6 @@ exports.handle_refresh_token = [
       }
     }
 
-    // Ensure the decoded ID matches the OAuthToken's account ID (good practice)
-    // if (decoded.id !== OAuthToken.account.id) {
-    //   console.warn("Decoded token ID does not match OAuthToken account ID.");
-    //   await deleteOAuthTokenByRefreshToken(refreshToken);
-    //   return res.status(401).json({ message: "Invalid token data." });
-    // }
-
     const account = OAuthToken.account;
     console.log("Account id in refresh controller: ", account.id);
 
@@ -62,6 +55,7 @@ exports.handle_refresh_token = [
       message: "Access token refreshed successfully!",
       accountId: account.id,
       accessToken: newAccessToken,
+      businessType: account.businessType,
     });
   }),
 ];

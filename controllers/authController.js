@@ -109,6 +109,7 @@ exports.normal_login = [
       message: "Logged In Successfully.",
       accountId: accountExist.id,
       accessToken: accessToken,
+      businessType: accountExist.businessType,
     });
   }),
 ];
@@ -132,6 +133,10 @@ exports.normal_register_form_post = [
     .trim()
     .isEmail()
     .normalizeEmail(),
+  body("accountInfo.businessType", "Business type must be a string")
+    .trim()
+    .isString()
+    .escape(),
   body("accountInfo.password", "Password must be at least 6 characters long")
     .isLength({ min: 6 })
     .notEmpty()
@@ -164,7 +169,9 @@ exports.normal_register_form_post = [
       companyEmail,
       password: accountPassword,
       companyName,
+      businessType,
     } = accountInfo;
+    console.log("Account info in register: ", accountInfo);
     const {
       name: ownerName,
       email: ownerEmail,
@@ -194,8 +201,9 @@ exports.normal_register_form_post = [
       }
       const hashedPassword = await passwordUtils.generatePw(accountPassword);
       const newAccount = await createAccount({
-        companyName,
-        companyEmail,
+        companyName: companyName,
+        companyEmail: companyEmail,
+        businessType: businessType,
         password: hashedPassword,
         hasPassword: true,
         slug: slug,
@@ -239,6 +247,7 @@ exports.normal_register_form_post = [
         accountId: newAccount.id,
         accessToken,
         oid: newOAuthToken.id,
+        businessType: newAccount.businessType,
       });
     } catch (error) {
       console.error("Registration error:", error);

@@ -24,6 +24,7 @@ const {
   updatePaxByQueueItemId,
   findQueueItemByContactNumberAndQueueId,
   createAQueueItemVIP,
+  findOutletsByAcctIdLandingPage,
 } = require("../db/authQueries");
 const {
   sendQueueUpdate,
@@ -87,7 +88,9 @@ exports.landing_page = [
       logo: account.logo,
       slug: account.slug,
     };
-    const outlets = await findOutletsByAcctId(account.id);
+    console.log("Account info: ", accountInfo);
+
+    const outlets = await findOutletsByAcctIdLandingPage(accountInfo.id);
 
     const outletsWithQueue = [];
     for (const outlet of outlets) {
@@ -201,6 +204,7 @@ exports.customer_form_get = [
       companyName: account.companyName,
       logo: account.logo,
       slug: account.slug,
+      businessType: account.businessType,
     };
 
     const queue = await findOutletByQueueId(params.queueId);
@@ -412,8 +416,6 @@ exports.customer_update_pax_post = [
       queueItemId: params.queueItemId,
     };
     const updatePax = await updatePaxByQueueItemId(dataForUpdate);
-
-    //! SEND UPDATE VIA IO TO UPDATE PAX
 
     const io = req.app.get("io");
     const notice = {

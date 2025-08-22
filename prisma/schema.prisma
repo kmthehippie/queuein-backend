@@ -29,8 +29,15 @@ model Account {
   slug         String       @unique @db.VarChar(255)
   customers    Customer[]
   auditLogs    AuditLog[]
+  businessType BusinessType @default(BASIC)
 
   @@index([slug])
+}
+
+enum BusinessType {
+  RESTAURANT
+  CLINIC
+  BASIC
 }
 
 model Staff {
