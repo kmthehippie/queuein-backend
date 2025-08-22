@@ -103,7 +103,6 @@ exports.landing_page = [
       }
       outletsWithQueue.push({ ...outlet, queues });
     }
-    console.log("This is the returned info: ", accountInfo, outletsWithQueue);
     res.status(200).json({ accountInfo, outletsWithQueue });
   }),
 ];
@@ -279,7 +278,11 @@ exports.customer_form_post = [
       }
 
       const io = req.app.get("io");
-      await sendQueueUpdateForHost(io, `host_${newQueueItem.queueId}`);
+      const notice = {
+        action: "join",
+        queueItemId: newQueueItem.id,
+      };
+      await sendQueueUpdateForHost(io, `host_${newQueueItem.queueId}`, notice);
 
       return res.status(201).json({
         message: `Welcome ${newQueueItem.name}. You have entered the queue.`,
@@ -370,7 +373,15 @@ exports.customer_quit_queue_post = [
 
     if (updateQueueItem) {
       const io = req.app.get("io");
-      await sendQueueUpdateForHost(io, `host_${updateQueueItem.queueId}`);
+      const notice = {
+        action: "quit",
+        queueItemId: updateQueueItem.id,
+      };
+      await sendQueueUpdateForHost(
+        io,
+        `host_${updateQueueItem.queueId}`,
+        notice
+      );
       res.status(201).json({
         message: `${updateQueueItem.name}, you have successfully left your queue. See you again soon!`,
       });

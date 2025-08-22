@@ -851,10 +851,18 @@ exports.no_show_queue_item_patch = [
       });
     }
 
+    const notice = {
+      action: "noShow",
+      queueItemId: queueItemId,
+    };
     const io = req.app.get("io");
     if (updatedQueueItem.queueId) {
       await sendQueueUpdate(io, `queue_${updatedQueueItem.queueId}`);
-      await sendQueueUpdateForHost(io, `host_${updatedQueueItem.queueId}`);
+      await sendQueueUpdateForHost(
+        io,
+        `host_${updatedQueueItem.queueId}`,
+        notice
+      );
     }
     if (noShow) {
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
