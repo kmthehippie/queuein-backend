@@ -81,7 +81,6 @@ exports.all_outlets_get = [
       accountId: accountId,
     };
     const returned = await findOutletsByAcctId(data);
-    console.log("All outlets: ", returned);
     if (returned) {
       return res.status(200).json(returned);
     } else {
@@ -120,13 +119,6 @@ exports.update_outlet_patch = [
     .notEmpty()
     .withMessage("Waze Maps URL cannot be empty if provided.")
     .trim(),
-  // body("imgUrl")
-  //   .optional({ checkFalsy: true })
-  //   .isURL()
-  //   .withMessage("Image URL must be a valid URL.")
-  //   .notEmpty()
-  //   .withMessage("Image URL cannot be empty if provided.")
-  //   .trim(),
   body("defaultEstWaitTime")
     .optional()
     .notEmpty()
@@ -224,11 +216,6 @@ exports.new_outlet_post = [
     .trim()
     .isURL()
     .withMessage("Waze Maps URL must be a valid URL."),
-  // body("imgUrl")
-  //   .optional({ checkFalsy: true })
-  //   .trim()
-  //   .isURL()
-  //   .withMessage("Image URL must be a valid URL."),
   body("defaultEstWaitTime")
     .notEmpty()
     .withMessage("Estimated wait time is required.")
@@ -1147,9 +1134,31 @@ exports.account_details_get = [
     }
   }),
 ];
+
+const businessType = {
+  BASIC: "BASIC",
+  CLINIC: "CLINIC",
+  RESTAURANT: "RESTAURANT",
+};
 exports.account_details_patch = [
   upload.single("outletImage"),
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  body("companyName")
+    .optional() // This makes the field optional
+    .isLength({ min: 6 })
+    .withMessage("Name must be at least 6 characters long.")
+    .trim()
+    .escape(),
+  body("businessType")
+    .optional() // This makes the field optional
+    .isIn(Object.values(businessType))
+    .withMessage("Invalid Business Type"),
+  body("slug")
+    .optional()
+    .isLength({ min: 5 })
+    .withMessage("Name must be at least 5 characters long.")
+    .trim()
+    .escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { accountId } = req.params;

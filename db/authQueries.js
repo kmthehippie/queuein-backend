@@ -26,7 +26,6 @@ exports.createAccount = async (data) => {
       slug: data.slug,
     },
   });
-  console.log("New account created: ", account);
   return account;
 };
 
@@ -301,7 +300,7 @@ exports.findOutletByIdAndAccountId = async (data) => {
       },
     },
   });
-  console.log("This is the outlet: ", outlet);
+
   return outlet;
 };
 
@@ -385,12 +384,10 @@ exports.createACustomer = async (data) => {
       accountId: data.accountId,
     },
   });
-  console.log("Creating a customer, ", customer);
   return customer;
 };
 
 exports.createAQueueItemVIP = async (data) => {
-  console.log("Trying to create queue item: ", data);
   const queueItem = await prisma.queueItem.create({
     data: {
       pax: data.pax,
@@ -411,7 +408,6 @@ exports.createAQueueItemVIP = async (data) => {
   return queueItem;
 };
 exports.createAQueueItem = async (data) => {
-  console.log("Trying to create queue item: ", data);
   const queueItem = await prisma.queueItem.create({
     data: {
       pax: data.pax,
@@ -454,14 +450,12 @@ exports.findAccountBySlug = async (slug) => {
 };
 
 exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
-  console.log("Find duplicate customer by number and account id", data);
   const customer = await prisma.customer.findMany({
     where: {
       number: data.number,
       accountId: data.accountId,
     },
   });
-  console.log("Customer: ", customer);
   return customer;
 };
 
@@ -476,11 +470,6 @@ exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
 // };
 
 exports.findDuplicateCustomerInQueue = async (data) => {
-  console.log(
-    "Finding duplicate customers in queue ",
-    data.queueId,
-    data.customerId
-  );
   const existing = await prisma.queueItem.findMany({
     where: {
       queueId: data.queueId,
@@ -703,7 +692,6 @@ exports.findAllStaffByAcctId = async (data) => {
 };
 
 exports.createAuditLog = async (data) => {
-  console.log("Create an Audit log ", data);
   const createLog = await prisma.auditLog.create({
     data: {
       staff: {
@@ -763,7 +751,6 @@ exports.updateStaffByIdAndAcctId = async (data) => {
 };
 
 exports.deleteOutletByIdAndAcctId = async (data) => {
-  console.log("Trying to delete outlet by Id and acct id", data);
   const deleteOutlet = await prisma.outlet.delete({
     where: {
       id: data.outletId,
@@ -831,12 +818,10 @@ exports.updateQRCodeForOutletId = async (data) => {
     },
     data: { qrCode: data.qrCode },
   });
-  console.log("Outlet updated: ", outlet);
   return outlet;
 };
 
 exports.findAuditLogsByOutletId = async (data) => {
-  console.log("Data for audit logs: ", data);
   const auditLog = await prisma.auditLog.findMany({
     where: {
       outletId: data.outletId,

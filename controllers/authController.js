@@ -113,7 +113,11 @@ exports.normal_login = [
     });
   }),
 ];
-
+const businessType = {
+  BASIC: "BASIC",
+  CLINIC: "CLINIC",
+  RESTAURANT: "RESTAURANT",
+};
 exports.normal_register_form_post = [
   //Validate the header
   header("User-Agent")
@@ -133,10 +137,10 @@ exports.normal_register_form_post = [
     .trim()
     .isEmail()
     .normalizeEmail(),
-  body("accountInfo.businessType", "Business type must be a string")
+  body("accountInfo.businessType")
     .trim()
-    .isString()
-    .escape(),
+    .isIn(Object.values(businessType))
+    .withMessage("Invalid Business Type"),
   body("accountInfo.password", "Password must be at least 6 characters long")
     .isLength({ min: 6 })
     .notEmpty()
