@@ -46,6 +46,20 @@ router.post(
   customerController.customer_waiting_page_get
 );
 
+//KIOSK-CUSTOMER RELATED ROUTES
+router.post(
+  "/kiosk/:acctSlug/:outletId/:queueId",
+  customerController.customer_kiosk_form_post
+);
+router.get(
+  "/kiosk/:acctSlug/:queueItem",
+  customerController.customer_kiosk_get_waiting_data
+);
+router.post(
+  "/kiosk/:acctSlug/:outletId/:queueId/prevQR",
+  customerController.customer_get_prev_waiting
+);
+
 //CHECKING LOCAL STORAGE SETTING
 router.post("/customerVerifyLS", customerController.check_local_storage);
 

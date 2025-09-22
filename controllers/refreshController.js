@@ -12,7 +12,6 @@ exports.handle_refresh_token = [
     const refreshToken = req.cookies.jwt;
     const oid = req.cookies.oid;
     const decoded = req.decodedRefreshToken;
-    console.log("refreshing: ", refreshToken, oid, decoded);
 
     if (decoded && decoded.exp) {
       const time = Math.floor(Date.now() / 1000);
@@ -23,6 +22,8 @@ exports.handle_refresh_token = [
     }
 
     const OAuthToken = await findOAuthTokenByRefreshToken(refreshToken);
+    delete OAuthToken.password;
+
     if (!OAuthToken) {
       await deleteOAuthTokenByRefreshToken(refreshToken);
       return res.status(401).json({
@@ -41,8 +42,6 @@ exports.handle_refresh_token = [
     }
 
     const account = OAuthToken.account;
-    console.log("Account id in refresh controller: ", account.id);
-
     const newAccessToken = generateAccessToken(account);
 
     await updateOAuthToken({
@@ -56,6 +55,7 @@ exports.handle_refresh_token = [
       accountId: account.id,
       accessToken: newAccessToken,
       businessType: account.businessType,
+      acctSlug: account.slug,
     });
   }),
 ];

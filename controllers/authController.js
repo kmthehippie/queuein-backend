@@ -105,11 +105,13 @@ exports.normal_login = [
     } else {
       setAuthCookies(req, res, next, refreshToken);
     }
+    console.log("Returning res.status 201");
     return res.status(201).json({
       message: "Logged In Successfully.",
       accountId: accountExist.id,
       accessToken: accessToken,
       businessType: accountExist.businessType,
+      acctSlug: accountExist.slug,
     });
   }),
 ];
@@ -220,7 +222,7 @@ exports.normal_register_form_post = [
       const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
       const newOwner = await createStaff({
         name: ownerName,
-        role: "OWNER",
+        role: "TIER_1",
         email: ownerEmail,
         accountId: newAccount.id,
         password: hashedOwnerPassword,

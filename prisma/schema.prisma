@@ -43,7 +43,7 @@ enum BusinessType {
 model Staff {
   id         Int        @id @default(autoincrement())
   name       String     @db.VarChar(255)
-  role       Role       @default(HOST)
+  role       Role       @default(TIER_3)
   createdAt  DateTime   @default(now())
   account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
@@ -59,14 +59,10 @@ model Staff {
 }
 
 enum Role {
-  OWNER
-  MANAGER
-  ASSISTANT_MANAGER
-  HOST
-  SERVER
-  CASHIER
-  BARISTA
-  // Add other relevant staff roles as needed
+  TIER_1 // Equivalent to OWNER
+  TIER_2 // Equivalent to MANAGER, ASSISTANT_MANAGER
+  TIER_3 // Equivalent to HOST
+  TIER_4 // Equivalent to everyone else (view-only)
 }
 
 model OAuthToken {

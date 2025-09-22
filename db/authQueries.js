@@ -96,7 +96,6 @@ exports.findOAuthTokenByRefreshToken = async (refreshToken) => {
       account: true,
     },
   });
-  console.log("Finding oauthtoken by refreshtoken. The OID: ", token.id);
   return token;
 };
 exports.findOAuthTokenByAccountIdAndUserAgent = async (

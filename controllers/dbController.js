@@ -57,7 +57,6 @@ exports.sidenav_outlet_get = [
     const data = { accountId: accountId };
     const returned = await findOutletsByAcctId(data);
     const outlets = returned.outlets;
-    console.log("Outlets in sidenav: ", returned);
     if (returned) {
       const arrToReturn = outlets.map((outlet) => ({
         name: outlet.name,
@@ -1063,13 +1062,10 @@ exports.check_role_post = [
     };
 
     const ROLE_HIERARCHY = {
-      OWNER: 4,
-      MANAGER: 3,
-      ASSISTANT_MANAGER: 2,
-      HOST: 1,
-      SERVER: 0,
-      CASHIER: 0,
-      BARISTA: 0,
+      TIER_1: 4,
+      TIER_2: 3,
+      TIER_3: 1,
+      TIER_4: 0,
     };
 
     const staff = await getStaffByNameAndAccount(dataToFindStaff);
@@ -1079,6 +1075,7 @@ exports.check_role_post = [
     }
 
     const pwValid = await validatePw(staff.password, password);
+    console.log("Is the password for staff valid? ", pwValid);
     if (!pwValid) {
       return res.status(403).json({
         message: "Forbidden: Verification Failed. Password is incorrect.",
