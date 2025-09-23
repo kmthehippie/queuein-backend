@@ -795,7 +795,7 @@ exports.findQueueItemByContactNumberAndQueueId = async (data) => {
       contactNumber: data.contactNumber,
     },
   });
-
+  console.log("Finding Queue Item by Contact Num and Queue Id");
   return queueItem;
 };
 

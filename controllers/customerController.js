@@ -598,7 +598,7 @@ exports.customer_kiosk_get_waiting_data = [
 
     const outlet = await findOutletByQueueId(queueItemInfo.queueId);
 
-    if (!outlet || accountInfo || queueItemInfo) {
+    if (!outlet || !accountInfo || !queueItemInfo) {
       return res.status(400).json({
         message: "Error getting outlet, account info or queue item info.",
       });
@@ -628,6 +628,7 @@ exports.customer_get_prev_waiting = [
       queueId,
       contactNumber: customerNumber,
     };
+
     const queueItem = await findQueueItemByContactNumberAndQueueId(data);
     console.log("This is the queue item: ", queueItem);
 
