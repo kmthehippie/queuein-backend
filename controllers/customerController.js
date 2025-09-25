@@ -232,7 +232,7 @@ exports.customer_form_post = [
   body("customerName", "Name must be a string").trim().isString().escape(),
   body("customerNumber", "Number must be valid").trim().isString().escape(),
   body("VIP", "VIP must be boolean").isBoolean(),
-  body("pax", "Pax must be an integer").trim().isInt().escape(),
+  body("pax", "Pax must be an integer").trim().optional().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { acctSlug, queueId } = req.params;
@@ -468,7 +468,7 @@ exports.customer_kiosk_form_post = [
   body("customerName", "Name must be a string").trim().isString().escape(),
   body("customerNumber", "Number must be valid").trim().isString().escape(),
   body("VIP", "VIP must be boolean").isBoolean(),
-  body("pax", "Pax must be an integer").trim().isInt().escape(),
+  body("pax", "Pax must be an integer").trim().optional().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     console.log("Got into cust kiosk form post");

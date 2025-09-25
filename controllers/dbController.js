@@ -1113,7 +1113,6 @@ exports.check_role_post = [
 ];
 
 //*SETTINGS*//
-
 exports.account_details_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,

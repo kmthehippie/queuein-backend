@@ -231,6 +231,7 @@ exports.normal_register_form_post = [
       if (!newOwner) {
         return sendServerError(res, "Error creating new owner");
       }
+      console.log("A new owner is created ", newOwner);
 
       const accessToken = jwt.generateAccessToken(newAccount);
       const refreshToken = jwt.generateRefreshToken(newAccount);
@@ -254,6 +255,7 @@ exports.normal_register_form_post = [
         accessToken,
         oid: newOAuthToken.id,
         businessType: newAccount.businessType,
+        acctSlug: newAccount.slug,
       });
     } catch (error) {
       console.error("Registration error:", error);
