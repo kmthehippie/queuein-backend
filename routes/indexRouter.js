@@ -22,6 +22,13 @@ router.get(
   customerController.outlet_landing_page
 );
 
+//* FCM CUSTOMER ROUTE *//
+router.post(
+  "/notifications/subscribe",
+  customerController.customer_subscribe_fcm_post
+);
+router.get("/firebase-proxy/:scriptName", authController.firebase_proxy_get);
+
 //* CUSTOMER ROUTES *//
 router.get(
   "/customerForm/:acctSlug/:queueId",
@@ -91,7 +98,10 @@ router.get(
   "/queueActivity/:accountId/:outletId",
   dbController.queue_activity_get
 );
-router.get("/activeQueue/:queueId", dbController.active_queue_get);
+router.get(
+  "/activeQueue/:accountId/:queueId/:outletId",
+  dbController.active_queue_get
+);
 router.get(
   "/inactiveQueues/:accountId/:outletId",
   dbController.inactive_queues_get
@@ -110,6 +120,7 @@ router.patch(
   "/noShowQueueItem/:queueItemId",
   dbController.no_show_queue_item_patch
 );
+router.patch("/maxQueueItems/:queueId", dbController.max_queue_items_patch);
 
 //STAFF RELATED ROUTES
 router.get("/staffList/:accountId", dbController.staff_list_get);
@@ -133,6 +144,9 @@ router.get(
   "/settings/auditlogs/:accountId/:outletId",
   dbController.audit_logs_outlet_get
 );
+
+//CUSTOMER INFO PAGES
+router.get("/customerInfo/:accountId", dbController.customer_info_get);
 
 module.exports = {
   router,

@@ -3,6 +3,7 @@ const { findAllQueueItemsByQueueId } = require("../db/authQueries");
 
 const sendQueueUpdateForHost = async (io, queueIdRoom, notice) => {
   const room = io.sockets.adapter.rooms.get(queueIdRoom);
+  console.log("queueIdRoom", queueIdRoom, "room", room);
   if (room) {
     const actualQueueId = queueIdRoom.slice(5);
     let dataToEmit = {};
@@ -43,12 +44,30 @@ const sendQueueUpdateForHost = async (io, queueIdRoom, notice) => {
   }
 };
 
-const getProcessedQueueData = async (queueId, socket) => {
+const getProcessedQueueData = async (
+  queueId,
+  socket,
+  queueItemIdFromWaiting
+) => {
   try {
-    console.log("This is the room: ", queueId);
+    console.log("This is the room for queue: ", queueId);
     if (!!queueId) {
       const actualQueueId = queueId.slice(6);
-      const queueItemId = socket.queueItemId;
+      let queueItemId;
+      if (socket.queueItemId) {
+        console.log("socket has queue item id", socket.queueItemId);
+        const socketQID = socket.queueItemId;
+        queueItemId = socketQID.slice(10);
+      } else {
+        queueItemId = queueItemIdFromWaiting;
+      }
+
+      console.log(
+        "actual queue id",
+        actualQueueId,
+        "queue item id",
+        queueItemId
+      );
 
       //Find all queueItems position in an array.
       const queue = await findAllQueueItemsByQueueId(actualQueueId);
@@ -57,6 +76,7 @@ const getProcessedQueueData = async (queueId, socket) => {
       const actualQueueItem = allQueueItems.find(
         (item) => item.id === queueItemId
       );
+      console.log("Actual queue item for this socket: ", actualQueueItem.id);
 
       //If queue item id does not exist or there is no actual queue item
       if (!queueItemId || !actualQueueItem) {
@@ -143,9 +163,12 @@ const getProcessedQueueData = async (queueId, socket) => {
   }
 };
 
-const sendQueueUpdate = async (io, queueId) => {
+const sendQueueUpdate = async (io, queueId, queueItemId) => {
   const room = io.sockets.adapter.rooms.get(queueId);
   console.log("Send queue Update: ", queueId);
+  if (queueItemId) {
+    console.log("With queue item id: ", queueItemId);
+  }
   if (room) {
     await Promise.all(
       Array.from(room).map(async (socketId) => {
@@ -180,9 +203,46 @@ const sendQueueUpdate = async (io, queueId) => {
   }
 };
 
+const sendKioskUpdate = async (io, queueItemId) => {
+  const roomName = `queueitem_${queueItemId}`;
+  console.log("This is the room name", roomName);
+  const room = io.sockets.adapter.rooms.get(roomName);
+  if (room) {
+    io.to(roomName).emit("customer_waiting", { queueItemId: queueItemId });
+  } else {
+    console.log(`Error, room not found in socket: ${roomName}`);
+  }
+};
+
+const sendMaxQueueItemsUpdate = async (io, kioskRoom, maxQueueItems) => {
+  console.log("This is the room name", kioskRoom);
+  const room = io.sockets.adapter.rooms.get(kioskRoom);
+  if (room) {
+    io.to(kioskRoom).emit("max_queue_items", { maxQueueItems: maxQueueItems });
+    if (maxQueueItems === 0) {
+      io.to(kioskRoom).emit("queue_ended", { message: "The queue has ended." });
+    }
+  } else {
+    console.log(`Error, room not found in socket: ${kioskRoom}`);
+  }
+};
+
+const sendOutletUpdate = async (io, outletRoom, notice) => {
+  console.log("We are updating the outlet page", outletRoom);
+  const room = io.sockets.adapter.rooms.get(outletRoom);
+  if (room) {
+    io.to(outletRoom).emit("outlet_queue_update", notice);
+    console.log("Emitting to outlet room:", outletRoom);
+  } else {
+    console.log(`Room ${outletRoom} is not found for outlet update`);
+  }
+};
 module.exports = {
   sendQueueUpdateForHost,
   getProcessedQueueData,
   sendQueueUpdate,
+  sendKioskUpdate,
+  sendOutletUpdate,
+  sendMaxQueueItemsUpdate,
   // sendCustomerJoined,
 };

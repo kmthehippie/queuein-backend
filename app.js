@@ -10,6 +10,20 @@ const http = require("http");
 const setupSocket = require("./socket");
 const startCronJobs = require("./helper/cronJobs");
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./config/serviceAccountKey.json");
+try {
+  const serviceAccount = require("./config/serviceAccountKey.json");
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  console.log("Firebase Admin SDK initialized successfully.");
+} catch (error) {
+  console.error(
+    "Failed to initialize Firebase Admin SDK. Make sure serviceAccountKey.json is present and valid.",
+    error.message
+  );
+}
 app.use(express.static(path.join(__dirname, "/public")));
 
 const indexRouter = require("./routes/indexRouter").router;

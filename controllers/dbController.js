@@ -1,9 +1,11 @@
 const asyncHandler = require("express-async-handler");
-const { header, body, param, check } = require("express-validator");
+const { header, body, param, query } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
 const {
   sendQueueUpdateForHost,
   sendQueueUpdate,
+  sendMaxQueueItemsUpdate,
+  sendOutletUpdate,
 } = require("../helper/socketHelper");
 const {
   findOutletsByAcctId,
@@ -11,6 +13,7 @@ const {
   updateOutletByOutletAndAcctId,
   findExistingSlug,
   findActiveQueuesByOutletAndAccountId,
+  updateSecretTokenByQueueItemId,
   findAllQueueItemsByQueueId,
   findOutletByIdAndAccountId,
   createQueue,
@@ -38,15 +41,24 @@ const {
   findAccountByAccountId,
   updateAccount,
   findAuditLogsByOutletId,
+  findQueueByQueueId,
+  updateMaxQueuers,
+  findOutletsByAcctIdLandingPage,
+  findAllCustomersByAccountId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
-const jwt = require("../config/jwt");
+
 const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
   PrismaClientKnownRequestError,
 } = require("@prisma/client/runtime/library");
 const upload = require("../config/multerConfig");
 const { generateQRCode } = require("../helper/generateQRCode");
+const {
+  sendPushNotification,
+  notifyTopQueuePos,
+} = require("../services/notificationService");
+const { queueItem } = require("../script");
 
 //* OUTLET RELATED CONTROLLERS *//
 exports.sidenav_outlet_get = [
@@ -75,11 +87,13 @@ exports.all_outlets_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const accountId = req.params.accountId;
+    const { accountId } = req.params;
     const data = {
       accountId: accountId,
     };
     const returned = await findOutletsByAcctId(data);
+    const allOutlets = await findOutletsByAcctIdLandingPage(accountId);
+
     if (returned) {
       return res.status(200).json(returned);
     } else {
@@ -235,14 +249,20 @@ exports.new_outlet_post = [
     .escape()
     .isLength({ min: 1 })
     .withMessage("Hours cannot be an empty string if provided."),
+  body("showPax")
+    .optional({ checkFalsy: true })
+    .isBoolean()
+    .withMessage("Show Pax must be a boolean value."),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const imgUrl = req.file ? req.file.path : null;
+    console.log("Show pax: ", req.body.showPax);
     const data = {
       accountId: req.params.accountId,
       ...req.body,
       qrCode: null,
       imgUrl: imgUrl,
+      showPax: req.body.showPax === "true" ? true : false,
     };
     const createNewOutlet = await createOutlet(data);
     const findAcctSlug = await findAccountByAccountId(req.params.accountId);
@@ -254,7 +274,7 @@ exports.new_outlet_post = [
       accountId: req.params.accountId,
       acctSlug: findAcctSlug.slug,
     };
-    const genQR = await generateQRCode(dataForQRCode);
+    await generateQRCode(dataForQRCode);
     if (!createNewOutlet) {
       return res.status(404).json({ message: "Error creating a new outlet" });
     } else {
@@ -269,16 +289,15 @@ exports.queue_activity_get = [
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const data = {
-      accountId: req.params.accountId,
-      outletId: parseInt(req.params.outletId),
-    };
+    const { accountId, outletId } = req.params;
+    console.log("Queue activity get: ", accountId, outletId);
     const outlet = await findOutletByIdAndAccountId({
-      accountId: req.params.accountId,
-      id: parseInt(req.params.outletId),
+      accountId: accountId,
+      id: parseInt(outletId),
     });
 
     if (!outlet) {
+      console.log("No outlet");
       return res.status(404).json({ message: "Error, outlet not found" });
     }
 
@@ -296,12 +315,14 @@ exports.queue_activity_get = [
 
       //Queue is inactive but is a recent queue
       const potentialInactiveQueue = await findRecentlyInactiveQueue({
-        ...data,
+        accountId: accountId,
+        id: outletId,
         fortyEightHoursAgo,
         now,
       });
 
       if (potentialInactiveQueue) {
+        console.log("potential inactive queue");
         const activeQueueItemCount = await countActiveQueueItemsByQueueId(
           potentialInactiveQueue.id
         );
@@ -340,15 +361,32 @@ exports.inactive_queues_get = [
       skip,
     });
 
+    console.log(
+      "Got queue service to find inactive queue stats: ",
+      result.inactiveQueueStats.length
+    );
+
     return res.status(200).json(result); // The service returns the full object
   }),
 ];
 
 exports.active_queue_get = [
   asyncHandler(async (req, res, next) => {
-    const queueItems = await findAllQueueItemsByQueueId(req.params.queueId);
+    const { queueId, outletId, accountId } = req.params;
+
+    console.log("Active queue get: ", queueId, outletId, accountId);
+    const queueItems = await findAllQueueItemsByQueueId(queueId);
+    const outlet = await findOutletByIdAndAccountId({
+      id: parseInt(outletId),
+      accountId: accountId,
+    });
+    console.log("Active queue get outlet: ", outlet);
+    const dataToReturn = {
+      queueItems: queueItems,
+      showPax: outlet.showPax,
+    };
     if (queueItems.length !== 0) {
-      return res.status(201).json(queueItems);
+      return res.status(201).json(dataToReturn);
     } else {
       return res.status(404).json({ message: "No queue items yet" });
     }
@@ -363,6 +401,7 @@ exports.new_queue_post = [
     .trim()
     .escape()
     .withMessage("Name of queue cannot be empty"),
+  body("maxQueueItems").notEmpty().isInt(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const data = {
@@ -399,7 +438,16 @@ exports.end_queue_post = [
   asyncHandler(async (req, res, next) => {
     const data = req.params;
     const endQueue = await endQueueByQueueId(data);
+    const notice = {
+      action: "queueEnded",
+      queueId: data.queueId,
+    };
+    const io = req.app.get("io");
     if (endQueue) {
+      console.log("End queue is happening: ", endQueue);
+      await sendQueueUpdateForHost(io, `host_${data.queueId}`, notice);
+      //set max queue items to 0 to indicate queue has ended
+      await sendMaxQueueItemsUpdate(io, `kiosk_${data.queueId}`, 0);
       return res.status(201).json(endQueue);
     } else {
       return res
@@ -419,17 +467,20 @@ exports.new_customer_post = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { queueId } = req.params;
+    console.log("Queue ID: ", queueId);
     const { customerName, customerNumber, VIP, pax, accountId } = req.body;
-
     const io = req.app.get("io");
 
     const dataToFindQueueItem = {
       queueId: queueId,
       contactNumber: customerNumber,
     };
+
+    //Check for existing queue item
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
     );
+    console.log("Existing queue item found: ", existingQueueItem);
     const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
       queueId
     );
@@ -446,11 +497,22 @@ exports.new_customer_post = [
           queueItemId: activeExistingQueueItem.id,
         };
         await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+        await sendOutletUpdate(io, `outlet_${queueId}`, notice);
+
         return res.status(200).json({
           message: `${customerName} has an existing active queue item at ${activeExistingQueueItem.position} position`,
           queueItem: activeExistingQueueItem,
         });
       }
+    }
+
+    //Check if queue is full!
+    const queue = await findQueueByQueueId(queueId);
+    console.log(queue.maxQueueItems, existingQueueItemsLength);
+    if (queue.maxQueueItems === existingQueueItemsLength) {
+      return res
+        .status(406)
+        .json({ message: "Maximum number of queuers has been reached." });
     }
 
     if (VIP === false) {
@@ -467,14 +529,24 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
+      const queueItemSecretToken = generateQueueItemToken(newQueueItem.id);
+      const queueItemToReturn = await updateSecretTokenByQueueItemId({
+        queueItemId: newQueueItem.id,
+        secretToken: queueItemSecretToken,
+      });
+
       const notice = {
         action: "join",
         queueItemId: newQueueItem.id,
       };
       await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+      await sendOutletUpdate(io, `outlet_${queueId}`, notice);
+      await sendQueueUpdate(io, `queue_${queueId}`, notice);
+
       return res.status(201).json({
         message: `Success! You have created a queue item for ${customerName}.`,
-        queueItem: newQueueItem,
+        queueItem: queueItemToReturn,
+        secretToken: queueItemSecretToken,
       });
     } else {
       let customerToLink = null;
@@ -483,6 +555,7 @@ exports.new_customer_post = [
         accountId: accountId,
       });
 
+      //Looking for an existing VIP Customer
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
           name: customerName,
@@ -505,6 +578,7 @@ exports.new_customer_post = [
         });
       }
 
+      //Now if we have the customer, create the queue item
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
@@ -519,15 +593,23 @@ exports.new_customer_post = [
           .status(400)
           .json({ message: "Error creating a new queue item for VIP" });
       }
+      const queueItemSecretToken = generateQueueItemToken(newQueueItem.id);
+      const queueItemToReturn = await updateSecretTokenByQueueItemId({
+        queueItemId: newQueueItem.id,
+        secretToken: queueItemSecretToken,
+      });
       const notice = {
         action: "join",
         queueItemId: newQueueItem.id,
       };
       await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+      await sendOutletUpdate(io, `outlet_${queueId}`, notice);
+      await sendQueueUpdate(io, `queue_${queueId}`);
       return res.status(201).json({
         message: `Success. ${customerName} has entered the queue.`,
-        queueItem: newQueueItem,
+        queueItem: queueItemToReturn,
         customer: customerToLink,
+        secretToken: queueItemSecretToken,
       });
     }
   }),
@@ -615,7 +697,6 @@ exports.seat_queue_item_patch = [
       });
     }
 
-    //! MY FIRST WORKING SOCKET FROM HOST -> CUST AND HOST
     const io = req.app.get("io");
     const notice = {
       action: "seated",
@@ -628,6 +709,8 @@ exports.seat_queue_item_patch = [
         `host_${updatedQueueItem.queueId}`,
         notice
       );
+      await sendOutletUpdate(io, `outlet_${updatedQueueItem.queueId}`, notice);
+      await notifyTopQueuePos(updatedQueueItem.queueId);
     }
     if (seated) {
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
@@ -666,7 +749,7 @@ exports.call_queue_item_patch = [
     const queueItemId = req.params.queueItemId;
     const calledStatus = req.body.called;
 
-    let updateCalled = null;
+    let updatedQueueItem = null;
 
     try {
       const existingQueueItem = await findQueueItemByQueueItemId(queueItemId);
@@ -686,7 +769,7 @@ exports.call_queue_item_patch = [
         dataToUpdate.calledAt = new Date();
       }
 
-      updateCalled = await updateCallQueueItem({
+      updatedQueueItem = await updateCallQueueItem({
         queueItemId,
         prevVersion,
         dataToUpdate,
@@ -711,49 +794,78 @@ exports.call_queue_item_patch = [
       });
     }
 
-    if (!updateCalled) {
+    if (!updatedQueueItem) {
       return res.status(500).json({ message: "Failed to update item." });
     }
 
-    const queueId = updateCalled.queueId;
-    const position = updateCalled.position;
-
+    console.log("Updated queue item: ", updatedQueueItem);
     const io = req.app.get("io");
 
     if (calledStatus) {
-      if (queueId) {
-        const notice = {
-          action: "called",
-          queueItemId: updateCalled.id,
-        };
-        await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
-      }
+      // Send socket updates
+      const notice = { action: "called", queueItemId: updatedQueueItem.id };
+      await sendQueueUpdateForHost(
+        io,
+        `host_${updatedQueueItem.queueId}`,
+        notice
+      );
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: true,
-        queueItemId: queueItemId,
-        position: position,
         action: "called",
         message: "It's your turn!",
-        calledAt: updateCalled.calledAt,
+        calledAt: updatedQueueItem.calledAt,
       });
-    } else {
-      if (queueId) {
-        const notice = {
-          action: "called",
-          queueItemId: updateCalled.id,
+
+      console.log("Updated queue item fcm token: ", updatedQueueItem.fcmToken);
+
+      if (updatedQueueItem.fcmToken) {
+        const queue = await findQueueByQueueId(updatedQueueItem.queueId);
+        const outlet = await findOutletByIdAndAccountId({
+          id: queue.outletId,
+          accountId: queue.accountId,
+        });
+        const account = await findAccountByAccountId(queue.accountId);
+
+        const title = `It's Your Turn, ${updatedQueueItem.name}!`;
+        const body = `Please approach our staff at ${outlet.name}.`;
+        const data = {
+          url: `/${account.slug}/queue/${updatedQueueItem.queueId}/${queueItemId}`,
         };
-        await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+
+        try {
+          await sendPushNotification(
+            updatedQueueItem.fcmToken,
+            title,
+            body,
+            data
+          );
+
+          console.log(
+            `Sending push notification to token: ${updatedQueueItem.fcmToken}`
+          );
+        } catch (error) {
+          console.error("!!! FAILED TO SEND PUSH NOTIFICATION !!!");
+          console.error("FCM Token Used:", updatedQueueItem.fcmToken);
+          console.error("Error Code:", error.code);
+          console.error("Error Message:", error.message);
+        }
       }
+    } else {
+      const notice = { action: "called", queueItemId: updatedQueueItem.id };
+      await sendQueueUpdateForHost(
+        io,
+        `host_${updatedQueueItem.queueId}`,
+        notice
+      );
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
         alert: false,
-        queueItemId: queueItemId,
-        position: position,
         action: "called",
         message: "Sorry, it's NOT your turn!",
-        calledAt: updateCalled.calledAt || null,
+        calledAt: null,
       });
     }
-    res.status(201).json(updateCalled);
+
+    res.status(201).json(updatedQueueItem);
 
     //Notes:
     //We pull the socket into the controller here because we want to ensure that there is only ONE source of truth and prevent race conditions. If we put the emit separate from here (meaning use the socket), we will likely run in to bugs.
@@ -857,6 +969,8 @@ exports.no_show_queue_item_patch = [
         `host_${updatedQueueItem.queueId}`,
         notice
       );
+      await sendOutletUpdate(io, `outlet_${updatedQueueItem.queueId}`, notice);
+      await notifyTopQueuePos(updatedQueueItem.queueId);
     }
     if (noShow) {
       io.to(`queueitem_${queueItemId}`).emit("queueitem_update", {
@@ -882,6 +996,54 @@ exports.no_show_queue_item_patch = [
       message: "Queue item has been successfully updated",
       updatedQueueItem,
     });
+  }),
+];
+
+exports.max_queue_items_patch = [
+  param("queueId")
+    .notEmpty()
+    .trim()
+    .escape()
+    .withMessage("Queue item ID cannot be empty"),
+  body("maxQueueItems").isInt().withMessage("Maximum queuers must be a number"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { queueId } = req.params;
+    const { maxQueueItems } = req.body;
+
+    console.log("We are in max queue items patch: ", queueId, maxQueueItems);
+
+    const existingQueue = await findQueueByQueueId(queueId);
+    console.log("This is the existing queue: ", existingQueue);
+
+    if (!existingQueue) {
+      return res.status(404).json({
+        message: `Error. No existing queue with this queue id ${queueId}`,
+      });
+    }
+    const updateQueue = await updateMaxQueuers({
+      queueId: queueId,
+      maxQueueItems: maxQueueItems,
+    });
+
+    if (!updateQueue) {
+      return res.status(404).json({
+        message: `Error. Could not update queue ${queueId} max queuers`,
+      });
+    }
+
+    const notice = {
+      action: "updateMaxQueueItems",
+      queueId: queueId,
+      maxQueueItems: maxQueueItems,
+    };
+    const io = req.app.get("io");
+    console.log("update queue: ", updateQueue);
+
+    await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
+    await sendMaxQueueItemsUpdate(io, `kiosk_${queueId}`, maxQueueItems);
+
+    return res.status(201).json(updateQueue);
   }),
 ];
 
@@ -1246,4 +1408,41 @@ exports.audit_logs_outlet_get = [
   }),
 ];
 
-//TODO: CUSTOMERS LIST WITHIN ACCOUNT PAGE
+//*CUSTOMER INFO*//
+exports.customer_info_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage("Page must be a positive integer"),
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .toInt()
+    .withMessage("Limit must be between 1 and 100"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { accountId } = req.params;
+    console.log("Fetching customer info for account id: ", accountId);
+    const page = parseInt(req.query.page) || 1;
+    console.log("Req query limit: ", req.query.limit);
+    const limit = parseInt(req.query.limit) || 10;
+
+    try {
+      const result = await findAllCustomersByAccountId(accountId, page, limit);
+      console.log("Total pages: ", Math.ceil(result.pagination.totalPages));
+      return res.status(200).json({
+        customers: result.customers,
+        currentPage: page,
+        totalPages: Math.ceil(result.pagination.totalPages),
+        totalCustomers: result.pagination.totalCustomers,
+      });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(404)
+        .json({ message: "Could not find customers for this account" });
+    }
+  }),
+];

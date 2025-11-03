@@ -101,21 +101,23 @@ model Outlet {
   phone              String?    @db.VarChar(36)
   hours              String?
   auditLogs          AuditLog[]
+  showPax            Boolean?   @default(true)
 
   @@index([accountId])
 }
 
 model Queue {
-  id         String      @id @unique @default(uuid())
-  outlet     Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
-  outletId   Int
-  queueItems QueueItem[]
-  startTime  DateTime    @default(now())
-  endTime    DateTime?
-  active     Boolean     @default(true)
-  name       String?
-  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId  String
+  id            String      @id @unique @default(uuid())
+  outlet        Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  outletId      Int
+  queueItems    QueueItem[]
+  startTime     DateTime    @default(now())
+  endTime       DateTime?
+  active        Boolean     @default(true)
+  name          String?
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId     String
+  maxQueueItems Int         @default(999)
 
   //We need to show active items and non active items. 
   //If Queueitem is inactive, then the data moves to a different array.
@@ -127,27 +129,30 @@ model Queue {
 model Customer {
   id         String      @id @unique @default(uuid())
   name       String?     @db.VarChar(255)
-  number     String?     @unique @db.VarChar(25)
+  number     String?     @db.VarChar(25)
   VIP        Boolean     @default(true)
   queueItems QueueItem[] @relation("CustomerQueueItem")
   account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
   createdAt  DateTime    @default(now())
+
+  @@unique([number, accountId])
 }
 
 model QueueItem {
-  id            String    @id @unique @default(uuid())
-  queue         Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
-  queueId       String
-  customerId    String?
-  customer      Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+  id         String    @id @unique @default(uuid())
+  queue      Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  queueId    String
+  customerId String?
+  customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+
   createdAt     DateTime  @default(now())
   pax           Int
   name          String?   @db.VarChar(255)
   contactNumber String?
   called        Boolean   @default(false)
   calledAt      DateTime?
-  seated        Boolean   @default(false)
+  seated        Boolean   @default(false) // served, withDoctor, entered
   seatedAt      DateTime?
   quit          Boolean   @default(false)
   quitAt        DateTime?
@@ -157,6 +162,9 @@ model QueueItem {
   position      Int
   inactiveAt    DateTime?
   version       Int       @default(0)
+  fcmToken      String?   @db.VarChar(255)
+  secretToken   String?   @unique @default(uuid()) @db.VarChar(255)
+
   //! @@check([seated != quit], name: "seated_quit_check")
   // Ensure seated and quit cannot both be true
   //If called is true, but seated is not. Start a wait timer. 

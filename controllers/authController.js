@@ -6,6 +6,7 @@ const jwt = require("../config/jwt");
 const passport = require("passport");
 const { setAuthCookies } = require("../middleware/setAuthCookies");
 const slugify = require("../config/slugify");
+const axios = require("axios");
 
 const {
   deleteOAuthToken,
@@ -330,3 +331,26 @@ exports.google_success_register_form_post = [
 ];
 
 exports.logout_post = [];
+
+exports.firebase_proxy_get = asyncHandler(async (req, res, next) => {
+  const { scriptName } = req.params;
+  const validScripts = ["firebase-app.js", "firebase-messaging.js"];
+
+  if (!validScripts.includes(scriptName)) {
+    return res.status(404).send("// Script not found.");
+  }
+
+  try {
+    const compatScriptName = scriptName.replace(".js", "-compat.js");
+    const scriptUrl = `https://www.gstatic.com/firebasejs/9.23.0/${compatScriptName}`;
+    const response = await axios.get(scriptUrl, {
+      responseType: "text",
+    });
+
+    res.setHeader("Content-Type", "application/javascript");
+    res.send(response.data);
+  } catch (error) {
+    console.error(`Failed to proxy Firebase script ${scriptName}:`, error);
+    res.status(500).send("// Failed to load script from proxy");
+  }
+});

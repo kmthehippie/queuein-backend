@@ -3,6 +3,7 @@ const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 const accessTokenExpiry = parseInt(process.env.ACCESS_TOKEN_EXPIRY);
 const refreshTokenExpiry = parseInt(process.env.REFRESH_TOKEN_EXPIRY);
+const queueItemSecret = process.env.QUEUE_ITEM_SECRET;
 
 exports.generateAccessToken = (account) => {
   console.log(
@@ -61,4 +62,21 @@ exports.refreshTokenDecoded = (req, res, next) => {
     req.decodedRefreshToken = decoded;
     next();
   });
+};
+
+exports.generateQueueItemToken = (queueItemId) => {
+  console.log(`Generated queue item token for queue item id: ${queueItemId}`);
+  return jwt.sign({ queueItemId: queueItemId }, queueItemSecret, {
+    expiresIn: "1d",
+  });
+};
+
+exports.verifyQueueItemToken = (token) => {
+  try {
+    const decoded = jwt.verify(token, queueItemSecret);
+    return decoded;
+  } catch (err) {
+    console.error("Error verifying queue item token:", err);
+    return null;
+  }
 };

@@ -139,3 +139,6 @@ dist
 .env
 generated
 node_modules
+
+# Firebase Admin SDK key
+/config/serviceAccountKey.json

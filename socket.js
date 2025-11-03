@@ -8,6 +8,7 @@ const {
   getProcessedQueueData,
   sendQueueUpdate,
   sendQueueUpdateForHost,
+  sendKioskUpdate,
   // sendCustomerJoined,
 } = require("./helper/socketHelper");
 
@@ -45,20 +46,23 @@ const setupSocket = (server) => {
     socket.on("join_queue", (queueId) => {
       console.log(`Socket ${socket.id} joined the 1:many room: ${queueId}`);
       socket.join(queueId);
-      console.log(queueId);
-      // sendCustomerJoined(io, queueId);
-    });
-
-    socket.on("set_queue_item_id", (queueItemId) => {
-      console.log(
-        `We are setting the ${queueItemId} for queue item id on ${socket.id} socket`
-      );
-      socket.queueItemId = queueItemId;
     });
 
     socket.on("join_queue_item_id", (queueItemId) => {
       console.log(`Socket ${socket.id} is joining the 1:1 room ${queueItemId}`);
+      socket.queueItemId = queueItemId;
       socket.join(queueItemId);
+    });
+
+    //KIOSK'S SOCKETS
+    socket.on("join_max_queue_items", (kioskQueueId) => {
+      socket.join(kioskQueueId);
+      console.log(`Kiosk joined the room: ${kioskQueueId}`);
+    });
+
+    socket.on("join_outlet_landing", (outletQueueId) => {
+      socket.join(outletQueueId);
+      console.log(`Outlet landing page joined the room: ${outletQueueId}`);
     });
 
     //STAFF'S SOCKETS
@@ -92,32 +96,43 @@ const setupSocket = (server) => {
       socket.leave(queueId);
     });
 
-    socket.on("cust_req_queue_refresh", async (queueId) => {
-      console.log(
-        `Customer on ${socket.id} socket requested for an refresh for queue: ${queueId}`
-      );
-      console.log("This is a real socket?", !!socket);
-
-      try {
-        const processedData = await getProcessedQueueData(
-          `queue_${queueId}`,
-          socket
+    socket.on(
+      "cust_req_queue_refresh",
+      async (queueId, queueItemIdFromWaiting) => {
+        console.log(
+          `Customer on ${socket.id} socket requested for an refresh for queue: ${queueId} with queue item id: ${queueItemIdFromWaiting}`
         );
+        console.log("This is a real socket?", !!socket);
 
-        if (processedData) {
-          socket.emit("res_queue_refresh", processedData);
-        } else {
-          // Handle the case where fetching processed data failed
+        try {
+          const processedData = await getProcessedQueueData(
+            `queue_${queueId}`,
+            socket,
+            queueItemIdFromWaiting
+          );
+          console.log("Processed data to emit:", processedData);
+
+          if (processedData) {
+            socket.emit("res_queue_refresh", processedData);
+          } else {
+            // Handle the case where fetching processed data failed
+            socket.emit("res_queue_refresh", {
+              error: "Failed to refresh queue data",
+            });
+          }
+        } catch (error) {
+          console.error("Error handling cust_req_queue_refresh:", error);
           socket.emit("res_queue_refresh", {
             error: "Failed to refresh queue data",
           });
         }
-      } catch (error) {
-        console.error("Error handling cust_req_queue_refresh:", error);
-        socket.emit("res_queue_refresh", {
-          error: "Failed to refresh queue data",
-        });
       }
+    );
+
+    socket.on("customer_in_waiting", async (data) => {
+      console.log("This is the data sent from waiting page: ", data);
+      //now we need to send to the kiosk success page
+      sendKioskUpdate(io, data.queueItemId);
     });
 
     //RECEIVE STAFF REQUEST

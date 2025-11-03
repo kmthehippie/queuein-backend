@@ -44,7 +44,6 @@ exports.getInactiveQueueStatsPaginated = async ({
   const totalCount = await countInactiveQueues({ accountId, outletId });
   const totalPages = Math.ceil(totalCount / limit);
 
-  console.log("This is the queuesWithStats: ", queuesWithStats);
   return {
     inactiveQueueStats: queuesWithStats,
     currentPage: Math.floor(skip / limit) + 1, // Calculate current page from skip/limit
