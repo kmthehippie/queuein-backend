@@ -10,7 +10,7 @@ const http = require("http");
 const setupSocket = require("./socket");
 const startCronJobs = require("./helper/cronJobs");
 
-const admin = require("firebase-admin");
+const admin = require("./config/firebaseAdminConfig");
 const serviceAccount = require("./config/serviceAccountKey.json");
 try {
   const serviceAccount = require("./config/serviceAccountKey.json");
