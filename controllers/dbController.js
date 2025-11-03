@@ -380,7 +380,7 @@ exports.active_queue_get = [
       id: parseInt(outletId),
       accountId: accountId,
     });
-    console.log("Active queue get outlet: ", outlet);
+    console.log("Active queue get outlet: ", outlet.id);
     const dataToReturn = {
       queueItems: queueItems,
       showPax: outlet.showPax,
