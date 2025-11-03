@@ -1,14 +1,5 @@
-const admin = require("firebase-admin");
+const admin = require("../config/firebaseAdminConfig");
 const { findTopActiveQueueItems } = require("../db/authQueries");
-
-// Initialize Firebase Admin (make sure you have the service account key)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(
-      require("../path/to/serviceAccountKey.json")
-    ),
-  });
-}
 
 const sendPushNotification = async (
   fcmToken,
