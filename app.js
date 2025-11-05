@@ -32,19 +32,14 @@ const corsOptions = {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors(corsOptions)); // Apply the cors package middleware
-app.use(cookieParser()); // Apply cookie-parser AFTER CORS
+app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(passport.initialize());
 require("./config/passportConfig");
 
 app.set("trust proxy", 1);
-
+app.options("*", cors(corsOptions));
 app.use("/api", indexRouter);
-
-app.get("/api/test", (req, res) => {
-  console.log("Test endpoint hit");
-  res.send("Backend is reachable");
-});
 
 const server = http.createServer(app);
 const io = setupSocket(server);
