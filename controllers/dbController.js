@@ -47,7 +47,7 @@ const {
   findAllCustomersByAccountId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
-
+const { generateQueueItemToken } = require("../config/jwt");
 const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
   PrismaClientKnownRequestError,
