@@ -17,10 +17,12 @@ const setAuthCookies = (req, res, refreshToken, id) => {
     maxAge: refreshTokenExpiry,
   });
 
-  res.cookie("oid", id, {
-    ...cookieOptions,
-    maxAge: oidExpiry,
-  });
+  if (id) {
+    res.cookie("oid", id, {
+      ...cookieOptions,
+      maxAge: oidExpiry,
+    });
+  }
   console.log("Setting auth cookies!", refreshToken, id);
 };
 

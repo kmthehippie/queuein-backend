@@ -89,7 +89,7 @@ exports.normal_login = [
             refreshToken: refreshToken,
             lastLoggedIn: new Date(),
           });
-          setAuthCookies(req, res, next, refreshToken, existingOAuthToken.id);
+          setAuthCookies(req, res, refreshToken, existingOAuthToken.id);
         } else {
           console.log(
             "New device, create a new token ",
@@ -103,16 +103,17 @@ exports.normal_login = [
             userAgent: userAgent,
             lastLoggedIn: new Date(),
           });
-          setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+          setAuthCookies(req, res, refreshToken, newOAuthToken.id);
         }
       } catch (error) {
         console.error("Error handling OAuthToken:", error);
         return sendInvalidCredentialsError(res);
       }
     } else {
-      setAuthCookies(req, res, next, refreshToken);
+      setAuthCookies(req, res, refreshToken);
     }
     console.log("Returning res.status 201");
+    setAuthCookies(req, res, refreshToken, newOAuthToken.id);
     return res.status(201).json({
       message: "Logged In Successfully.",
       accountId: accountExist.id,
