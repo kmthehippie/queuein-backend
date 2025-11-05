@@ -113,7 +113,6 @@ exports.normal_login = [
       setAuthCookies(req, res, refreshToken);
     }
     console.log("Returning res.status 201");
-    setAuthCookies(req, res, refreshToken, newOAuthToken.id);
     return res.status(201).json({
       message: "Logged In Successfully.",
       accountId: accountExist.id,
