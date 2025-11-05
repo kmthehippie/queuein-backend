@@ -25,8 +25,8 @@ passport.use(
     async (req, email, password, done) => {
       try {
         console.log("Entering passport local strategy: ", req.body);
-        const decryptEmail = decrypt(email);
-        const account = await getAccountEmail(decryptEmail);
+        const encyrptedEmail = encrypt(email);
+        const account = await getAccountEmail(encyrptedEmail);
         if (!account) {
           console.log("Authentication failed -- No such email found: ", email);
           return done(null, false, { error: "Invalid Email or Password" });
@@ -35,6 +35,11 @@ passport.use(
         if (!validPw) {
           return done(null, false, { error: "Invalid Email or Password" });
         }
+        account.companyName = decrypt(account.companyName);
+        account.email = decrypt(account.email);
+        account.delete("password");
+
+        console.log("Authentication successful for account: ", account);
         return done(null, account);
       } catch (err) {
         console.error("Passport local strategy error: ", err);
