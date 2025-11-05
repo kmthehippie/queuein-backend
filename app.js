@@ -38,7 +38,7 @@ app.use(passport.initialize());
 require("./config/passportConfig");
 
 app.set("trust proxy", 1);
-app.options("*", cors(corsOptions));
+// app.options("*", cors(corsOptions));
 app.use("/api", indexRouter);
 
 const server = http.createServer(app);
