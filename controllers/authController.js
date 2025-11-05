@@ -262,7 +262,7 @@ exports.normal_register_form_post = [
         return sendServerError(res, "Error creating auth token");
       }
 
-      setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+      setAuthCookies(req, res, refreshToken, newOAuthToken.id);
       console.log("Account created successfully:", newAccount.id); // Add this
       return res.status(201).json({
         message: "Account created successfully",
