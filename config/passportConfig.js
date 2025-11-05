@@ -37,7 +37,7 @@ passport.use(
         }
         account.companyName = decrypt(account.companyName);
         account.email = decrypt(account.email);
-        account.delete("password");
+        delete account.password;
 
         console.log("Authentication successful for account: ", account);
         return done(null, account);
