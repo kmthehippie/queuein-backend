@@ -7,7 +7,7 @@
     "dev": "nodemon app.js",
     "build": "prisma generate",
     "migrate": "npx prisma migrate deploy",
-    "start": "node app.js",
+    "start": "npx prisma migrate deploy && node app.js",
     "postinstall": "prisma generate"
   },
   "repository": {

@@ -41,6 +41,11 @@ app.set("trust proxy", 1);
 
 app.use("/api", indexRouter);
 
+app.get("/api/test", (req, res) => {
+  console.log("Test endpoint hit");
+  res.send("Backend is reachable");
+});
+
 const server = http.createServer(app);
 const io = setupSocket(server);
 app.set("io", io);

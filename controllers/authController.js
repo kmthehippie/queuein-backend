@@ -176,6 +176,7 @@ exports.normal_register_form_post = [
   handleValidationResult,
 
   asyncHandler(async (req, res, next) => {
+    console.log("Register attempt received:", req.body); // Add this
     const { accountInfo, ownerInfo } = req.body;
     const userAgent = req.get("User-Agent");
     const {
@@ -197,8 +198,7 @@ exports.normal_register_form_post = [
     const encryptedOwnerName = encrypt(ownerName);
     const encryptedOwnerEmail = encrypt(ownerEmail);
 
-    const accountExist = await getAccountEmail(encryptedCompanyEmail); // Note: Adjust getAccountEmail to query encrypted email
-
+    const accountExist = await getAccountEmail(encryptedCompanyEmail);
     if (accountExist) {
       return res
         .status(409)
@@ -262,6 +262,7 @@ exports.normal_register_form_post = [
       }
 
       setAuthCookies(req, res, next, refreshToken, newOAuthToken.id);
+      console.log("Account created successfully:", newAccount.id); // Add this
       return res.status(201).json({
         message: "Account created successfully",
         accountId: newAccount.id,
@@ -272,7 +273,7 @@ exports.normal_register_form_post = [
         companyName: decrypt(newAccount.companyName),
       });
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Registration error:", error); // Ensure logged
       return sendServerError(
         res,
         "An unexpected error occurred during registration"
