@@ -419,7 +419,9 @@ exports.active_queue_get = [
 
     console.log("Active queue get: ", queueId, outletId, accountId);
     const queue = await findAllQueueItemsByQueueId(queueId);
-    // Decrypt queueItems fields if it's an array
+    if (!queue) {
+      return res.status(404).json({ message: "No active queue found" });
+    }
     const decryptQueueItems = queue.queueItems;
     if (decryptQueueItems && Array.isArray(decryptQueueItems)) {
       decryptQueueItems.forEach((item) => {
@@ -446,10 +448,10 @@ exports.active_queue_get = [
       showPax: outlet.showPax,
     };
     console.log("Data to return: ", dataToReturn);
-    if (queue.queueItems.length !== 0) {
+    if (dataToReturn) {
       return res.status(201).json(dataToReturn);
     } else {
-      return res.status(404).json({ message: "No queue items yet" });
+      return res.status(404).json({ message: "No data to return" });
     }
   }),
 ];
