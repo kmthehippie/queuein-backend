@@ -58,7 +58,7 @@ const {
   sendPushNotification,
   notifyTopQueuePos,
 } = require("../services/notificationService");
-const { queueItem } = require("../script");
+const { encrypt, decrypt } = require("../utils/encryption");
 
 //* OUTLET RELATED CONTROLLERS *//
 exports.sidenav_outlet_get = [
@@ -71,7 +71,7 @@ exports.sidenav_outlet_get = [
     const outlets = returned.outlets;
     if (returned) {
       const arrToReturn = outlets.map((outlet) => ({
-        name: outlet.name,
+        name: decrypt(outlet.name),
         id: outlet.id,
       }));
       return res.status(200).json(arrToReturn);
@@ -94,6 +94,28 @@ exports.all_outlets_get = [
     const returned = await findOutletsByAcctId(data);
     const allOutlets = await findOutletsByAcctIdLandingPage(accountId);
 
+    // Decrypt outlet fields
+    returned.outlets.forEach((outlet) => {
+      outlet.name = decrypt(outlet.name);
+      outlet.location = decrypt(outlet.location);
+      outlet.phone = decrypt(outlet.phone);
+    });
+
+    // Decrypt account fields if account is included in response and fields exist
+    if (returned.accountInfo) {
+      if (returned.accountInfo.companyName) {
+        returned.accountInfo.companyName = decrypt(
+          returned.accountInfo.companyName
+        );
+      }
+      if (returned.accountInfo.companyEmail) {
+        returned.accountInfo.companyEmail = decrypt(
+          returned.accountInfo.companyEmail
+        );
+      }
+    }
+
+    console.log(returned);
     if (returned) {
       return res.status(200).json(returned);
     } else {
@@ -178,6 +200,11 @@ exports.update_outlet_patch = [
         .status(404)
         .json({ message: "Error. Was not able to update the outlet data." });
     } else {
+      // Decrypt for response
+      updatedOutlet.name = decrypt(updatedOutlet.name);
+      updatedOutlet.location = decrypt(updatedOutlet.location);
+      updatedOutlet.phone = decrypt(updatedOutlet.phone);
+
       return res.status(201).json(updatedOutlet);
     }
   }),
@@ -259,6 +286,9 @@ exports.new_outlet_post = [
     console.log("Show pax: ", req.body.showPax);
     const data = {
       accountId: req.params.accountId,
+      name: encrypt(req.body.name),
+      location: encrypt(req.body.location),
+      phone: encrypt(req.body.phone),
       ...req.body,
       qrCode: null,
       imgUrl: imgUrl,
@@ -278,6 +308,11 @@ exports.new_outlet_post = [
     if (!createNewOutlet) {
       return res.status(404).json({ message: "Error creating a new outlet" });
     } else {
+      // Decrypt for response
+      createNewOutlet.name = decrypt(createNewOutlet.name);
+      createNewOutlet.location = decrypt(createNewOutlet.location);
+      createNewOutlet.phone = decrypt(createNewOutlet.phone);
+
       return res.status(201).json(createNewOutlet);
     }
   }),
@@ -334,8 +369,16 @@ exports.queue_activity_get = [
     }
 
     if (relevantQueue) {
+      // Decrypt outlet fields
+      outlet.name = decrypt(outlet.name);
+      outlet.location = decrypt(outlet.location);
+      outlet.phone = decrypt(outlet.phone);
       return res.status(200).json({ outlet: outlet, queue: relevantQueue });
     } else {
+      // Decrypt outlet fields
+      outlet.name = decrypt(outlet.name);
+      outlet.location = decrypt(outlet.location);
+      outlet.phone = decrypt(outlet.phone);
       return res.status(200).json({ outlet: outlet, queue: null });
     }
   }),
@@ -375,17 +418,35 @@ exports.active_queue_get = [
     const { queueId, outletId, accountId } = req.params;
 
     console.log("Active queue get: ", queueId, outletId, accountId);
-    const queueItems = await findAllQueueItemsByQueueId(queueId);
+    const queue = await findAllQueueItemsByQueueId(queueId);
+    // Decrypt queueItems fields if it's an array
+    const decryptQueueItems = queue.queueItems;
+    if (decryptQueueItems && Array.isArray(decryptQueueItems)) {
+      decryptQueueItems.forEach((item) => {
+        item.name = decrypt(item.name);
+        item.contactNumber = decrypt(item.contactNumber);
+        if (item.customer) {
+          item.customer.name = decrypt(item.customer.name);
+          item.customer.number = decrypt(item.customer.number);
+        }
+        console.log("Decrypted item: ", item);
+      });
+    }
+    queue.queueItems = decryptQueueItems;
     const outlet = await findOutletByIdAndAccountId({
       id: parseInt(outletId),
       accountId: accountId,
     });
-    console.log("Active queue get outlet: ", outlet.id);
+    // Decrypt outlet fields
+    outlet.name = decrypt(outlet.name);
+    outlet.location = decrypt(outlet.location);
+    outlet.phone = decrypt(outlet.phone);
     const dataToReturn = {
-      queueItems: queueItems,
+      queue: queue,
       showPax: outlet.showPax,
     };
-    if (queueItems.length !== 0) {
+    console.log("Data to return: ", dataToReturn);
+    if (queue.queueItems.length !== 0) {
       return res.status(201).json(dataToReturn);
     } else {
       return res.status(404).json({ message: "No queue items yet" });
@@ -473,7 +534,7 @@ exports.new_customer_post = [
 
     const dataToFindQueueItem = {
       queueId: queueId,
-      contactNumber: customerNumber,
+      contactNumber: encrypt(customerNumber), // Encrypt for query
     };
 
     //Check for existing queue item
@@ -519,8 +580,8 @@ exports.new_customer_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
@@ -534,6 +595,12 @@ exports.new_customer_post = [
         queueItemId: newQueueItem.id,
         secretToken: queueItemSecretToken,
       });
+
+      // Decrypt for response
+      queueItemToReturn.name = decrypt(queueItemToReturn.name);
+      queueItemToReturn.contactNumber = decrypt(
+        queueItemToReturn.contactNumber
+      );
 
       const notice = {
         action: "join",
@@ -558,8 +625,8 @@ exports.new_customer_post = [
       //Looking for an existing VIP Customer
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
-          name: customerName,
-          number: customerNumber,
+          name: encrypt(customerName),
+          number: encrypt(customerNumber),
           VIP: VIP,
           accountId: accountId,
         };
@@ -582,8 +649,8 @@ exports.new_customer_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
       };
@@ -598,6 +665,15 @@ exports.new_customer_post = [
         queueItemId: newQueueItem.id,
         secretToken: queueItemSecretToken,
       });
+
+      // Decrypt for response
+      queueItemToReturn.name = decrypt(queueItemToReturn.name);
+      queueItemToReturn.contactNumber = decrypt(
+        queueItemToReturn.contactNumber
+      );
+      customerToLink.name = decrypt(customerToLink.name);
+      customerToLink.number = decrypt(customerToLink.number);
+
       const notice = {
         action: "join",
         queueItemId: newQueueItem.id,
@@ -730,6 +806,11 @@ exports.seat_queue_item_patch = [
       });
     }
 
+    updatedQueueItem.name = decrypt(updatedQueueItem.name);
+    updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
+
+    console.log("Decrypted updated queue item: ", updatedQueueItem);
+
     res.status(201).json({
       message: "Queue item has been successfully updated",
       updatedQueueItem,
@@ -799,6 +880,10 @@ exports.call_queue_item_patch = [
     }
 
     console.log("Updated queue item: ", updatedQueueItem);
+    updatedQueueItem.name = decrypt(updatedQueueItem.name);
+    updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
+
+    console.log("Decrypted updated queue item: ", updatedQueueItem);
     const io = req.app.get("io");
 
     if (calledStatus) {
@@ -826,7 +911,7 @@ exports.call_queue_item_patch = [
         });
         const account = await findAccountByAccountId(queue.accountId);
 
-        const title = `It's Your Turn, ${updatedQueueItem.name}!`;
+        const title = `It's Your Turn, ${decrypt(updatedQueueItem.name)}!`;
         const body = `Please approach our staff at ${outlet.name}.`;
         const data = {
           url: `/${account.slug}/queue/${updatedQueueItem.queueId}/${queueItemId}`,
@@ -992,6 +1077,10 @@ exports.no_show_queue_item_patch = [
       });
     }
 
+    console.log("Updated queue item no show status: ", updatedQueueItem);
+    updatedQueueItem.name = decrypt(updatedQueueItem.name);
+    updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
+    console.log("Decrypted updated queue item: ", updatedQueueItem);
     res.status(201).json({
       message: "Queue item has been successfully updated",
       updatedQueueItem,
@@ -1054,6 +1143,11 @@ exports.staff_list_get = [
   asyncHandler(async (req, res, next) => {
     const accountId = req.params.accountId;
     const staffList = await findAllStaffByAcctId(accountId);
+    // Decrypt for response
+    staffList.forEach((staff) => {
+      staff.name = decrypt(staff.name);
+      staff.email = decrypt(staff.email);
+    });
     if (staffList.length !== 0) {
       return res.status(200).json(staffList);
     } else {
@@ -1075,14 +1169,17 @@ exports.new_staff_post = [
     const pw = await generatePw(body.password);
     const data = {
       accountId: accountId,
-      name: body.name,
-      email: body.email,
+      name: encrypt(body.name),
+      email: encrypt(body.email),
       role: body.role,
       password: pw,
     };
     const staff = await createStaff(data);
     const staffResponse = { ...staff };
     delete staff.password;
+    // Decrypt for response
+    staffResponse.name = decrypt(staffResponse.name);
+    staffResponse.email = decrypt(staffResponse.email);
 
     if (staffResponse.length !== 0) {
       return res.status(200).json(staffResponse);
@@ -1125,6 +1222,9 @@ exports.staff_get = [
     const staffInfo = await getStaffByIdAndAccountId(data);
     const staffResponse = { ...staffInfo };
     delete staffInfo.password;
+    // Decrypt for response
+    staffResponse.name = decrypt(staffResponse.name);
+    staffResponse.email = decrypt(staffResponse.email);
 
     if (staffResponse) {
       return res.status(200).json(staffResponse);
@@ -1164,13 +1264,13 @@ exports.staff_patch = [
       //2. Build the update object conditionally
       const updateFields = {};
       if (bodyData.name !== undefined) {
-        updateFields.name = bodyData.name;
+        updateFields.name = encrypt(bodyData.name);
       }
       if (bodyData.role !== undefined) {
         updateFields.role = bodyData.role;
       }
       if (bodyData.email !== undefined) {
-        updateFields.email = bodyData.email;
+        updateFields.email = encrypt(bodyData.email);
       }
       if (bodyData.password !== undefined && bodyData.password !== "") {
         const hashedPW = await generatePw(bodyData.password);
@@ -1186,6 +1286,9 @@ exports.staff_patch = [
       const updateStaff = await updateStaffByIdAndAcctId(dataToUpdateStaff);
       const staffResponse = { ...updateStaff };
       delete updateStaff.password;
+      // Decrypt for response
+      staffResponse.name = decrypt(staffResponse.name);
+      staffResponse.email = decrypt(staffResponse.email);
 
       if (updateStaff) {
         return res.status(201).json(staffResponse);
@@ -1219,7 +1322,7 @@ exports.check_role_post = [
     const { name, password, actionPurpose, minimumRole, outletId } = req.body;
     const { accountId } = req.params;
     const dataToFindStaff = {
-      name: name,
+      name: encrypt(name),
       accountId: accountId,
     };
 
@@ -1265,6 +1368,9 @@ exports.check_role_post = [
         staffName: staff.name,
       };
 
+      // Decrypt for response
+      dataForFront.staffName = decrypt(dataForFront.staffName);
+
       return res.status(200).json(dataForFront);
     } else {
       return res
@@ -1284,6 +1390,10 @@ exports.account_details_get = [
       const account = await findAccountByAccountId(accountId);
       if (account) {
         delete account.password;
+        // Decrypt for response
+        account.companyName = decrypt(account.companyName);
+        account.companyEmail = decrypt(account.companyEmail);
+
         return res.status(200).json(account);
       }
     } catch (error) {
@@ -1346,7 +1456,9 @@ exports.account_details_patch = [
         .status(404)
         .json({ message: "Error. Was not able to update the account data." });
     } else {
-      delete updateAccount.password;
+      updatedAccount.companyName = decrypt(updatedAccount.companyName);
+      updatedAccount.companyEmail = decrypt(updatedAccount.companyEmail);
+
       return res.status(201).json(updatedAccount);
     }
   }),
@@ -1363,6 +1475,10 @@ exports.qrcode_outlet_get = [
         accountId: req.params.accountId,
         id: parseInt(req.params.outletId),
       });
+      outlet.name = decrypt(outlet.name);
+      outlet.location = decrypt(outlet.location);
+      outlet.phone = decrypt(outlet.phone);
+      outlet.account.companyName = decrypt(outlet.account.companyName);
       return res.status(200).json(outlet);
     } catch (error) {
       console.error(error);
@@ -1398,6 +1514,11 @@ exports.audit_logs_outlet_get = [
     };
     try {
       const auditLogs = await findAuditLogsByOutletId(data);
+      auditLogs.forEach((log) => {
+        if (log.staff) {
+          log.staff.name = decrypt(log.staff.name);
+        }
+      });
       return res.status(200).json(auditLogs);
     } catch (error) {
       console.error("Error, no audit logs found: ", error);
@@ -1431,6 +1552,11 @@ exports.customer_info_get = [
 
     try {
       const result = await findAllCustomersByAccountId(accountId, page, limit);
+      // Decrypt for response
+      result.customers.forEach((customer) => {
+        customer.name = decrypt(customer.name);
+        customer.number = decrypt(customer.number);
+      });
       console.log("Total pages: ", Math.ceil(result.pagination.totalPages));
       return res.status(200).json({
         customers: result.customers,

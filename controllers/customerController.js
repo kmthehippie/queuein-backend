@@ -27,6 +27,7 @@ const {
   sendOutletUpdate,
 } = require("../helper/socketHelper");
 const { generateQueueItemToken } = require("../config/jwt");
+const { encrypt, decrypt } = require("../utils/encryption");
 
 exports.check_local_storage = [
   body("queueItemId")
@@ -81,7 +82,7 @@ exports.landing_page = [
 
     const accountInfo = {
       id: account.id,
-      companyName: account.companyName,
+      companyName: decrypt(account.companyName),
       logo: account.logo,
       slug: account.slug,
     };
@@ -125,7 +126,7 @@ exports.outlet_landing_page = [
     }
     const accountInfo = {
       id: account.id,
-      companyName: account.companyName,
+      companyName: decrypt(account.companyName),
       logo: account.logo,
       slug: account.slug,
       businessType: account.businessType,
@@ -192,7 +193,7 @@ exports.customer_form_get = [
     }
     const accountInfo = {
       id: account.id,
-      companyName: account.companyName,
+      companyName: decrypt(account.companyName),
       logo: account.logo,
       slug: account.slug,
       businessType: account.businessType,
@@ -234,7 +235,7 @@ exports.customer_form_post = [
 
     const dataToFindQueueItem = {
       queueId: queueId,
-      contactNumber: customerNumber,
+      contactNumber: encrypt(customerNumber), // Encrypt for query
     };
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
@@ -259,8 +260,8 @@ exports.customer_form_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
@@ -275,6 +276,12 @@ exports.customer_form_post = [
         queueItemId: newQueueItem.id,
         secretToken: queueItemSecretToken,
       });
+
+      // Decrypt for response
+      queueItemToReturn.name = decrypt(queueItemToReturn.name);
+      queueItemToReturn.contactNumber = decrypt(
+        queueItemToReturn.contactNumber
+      );
 
       const io = req.app.get("io");
       const notice = {
@@ -303,8 +310,8 @@ exports.customer_form_post = [
 
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
-          name: customerName,
-          number: customerNumber,
+          name: encrypt(customerName),
+          number: encrypt(customerNumber),
           VIP: VIP,
           accountId: account.id,
         };
@@ -326,8 +333,8 @@ exports.customer_form_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
       };
@@ -343,6 +350,14 @@ exports.customer_form_post = [
         queueItemId: newQueueItem.id,
         secretToken: queueItemSecretToken,
       });
+
+      // Decrypt for response
+      queueItemToReturn.name = decrypt(queueItemToReturn.name);
+      queueItemToReturn.contactNumber = decrypt(
+        queueItemToReturn.contactNumber
+      );
+      customerToLink.name = decrypt(customerToLink.name);
+      customerToLink.number = decrypt(customerToLink.number);
 
       const io = req.app.get("io");
       const notice = {
@@ -497,6 +512,14 @@ exports.customer_waiting_page_get = [
     if (queueItem.active) {
       const account = await findAccountBySlug(acctSlug);
       const outlet = await findOutletByQueueId(queueId);
+      // Decrypt fields
+      account.companyName = decrypt(account.companyName);
+      queueItem.name = decrypt(queueItem.name);
+      queueItem.contactNumber = decrypt(queueItem.contactNumber);
+      if (queueItem.customer) {
+        queueItem.customer.name = decrypt(queueItem.customer.name);
+        queueItem.customer.number = decrypt(queueItem.customer.number);
+      }
       const dataToReturn = {
         accountInfo: account,
         outlet: outlet.outlet,
@@ -530,17 +553,15 @@ exports.customer_kiosk_form_post = [
   body("pax", "Pax must be an integer").trim().optional().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    console.log("Got into cust kiosk form post");
     const { acctSlug, queueId } = req.params;
     const { customerName, customerNumber, VIP, pax } = req.body;
     const account = await findAccountBySlug(acctSlug);
     if (!account) {
       return res.status(404).json({ message: "Error. Account not found" });
     }
-    console.log("Queue id: ", queueId);
     const dataToFindQueueItem = {
       queueId: queueId,
-      contactNumber: customerNumber,
+      contactNumber: encrypt(customerNumber), // Encrypt for query
     };
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
@@ -565,8 +586,8 @@ exports.customer_kiosk_form_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
@@ -575,11 +596,16 @@ exports.customer_kiosk_form_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
+      // Decrypt for response
+      newQueueItem.name = decrypt(newQueueItem.name);
+      newQueueItem.contactNumber = decrypt(newQueueItem.contactNumber);
       const io = req.app.get("io");
       const notice = {
         action: "join",
         queueItemId: newQueueItem.id,
       };
+
+      console.log("New Queue Item: ", newQueueItem);
       await sendQueueUpdateForHost(io, `host_${newQueueItem.queueId}`, notice);
       await sendQueueUpdate(io, `queue_${newQueueItem.queueId}`, notice);
       await sendOutletUpdate(io, `outlet_${newQueueItem.outletId}`, notice);
@@ -600,12 +626,13 @@ exports.customer_kiosk_form_post = [
         number: customerNumber,
         accountId: account.id,
       });
+
       console.log("Existing customer found: ", existingCustomer);
 
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
-          name: customerName,
-          number: customerNumber,
+          name: encrypt(customerName),
+          number: encrypt(customerNumber),
           VIP: VIP,
           accountId: account.id,
         };
@@ -627,8 +654,8 @@ exports.customer_kiosk_form_post = [
       const dataForNewQueueItem = {
         queueId: queueId,
         pax: parseInt(pax),
-        name: customerName,
-        contactNumber: customerNumber,
+        name: encrypt(customerName),
+        contactNumber: encrypt(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
       };
@@ -638,6 +665,13 @@ exports.customer_kiosk_form_post = [
           .status(400)
           .json({ message: "Error creating a new queue item for VIP" });
       }
+
+      newQueueItem.name = decrypt(newQueueItem.name);
+      newQueueItem.contactNumber = decrypt(newQueueItem.contactNumber);
+      customerToLink.name = decrypt(customerToLink.name);
+      customerToLink.number = decrypt(customerToLink.number);
+
+      console.log("New VIP Queue Item: ", newQueueItem, customerToLink);
       const io = req.app.get("io");
       const notice = {
         action: "join",
@@ -664,7 +698,7 @@ exports.customer_kiosk_get_waiting_data = [
     const accountInfo = await findAccountBySlug(acctSlug);
     const queueItemInfo = await findQueueItemByQueueItemId(queueItem);
     const outlet = await findOutletByQueueId(queueItemInfo.queueId);
-    console.log("account infor in kiosk waiting: ", accountInfo);
+
     const queue = await findAllQueueItemsByQueueId(queueItemInfo.queueId);
 
     const allQueueItems = queue.queueItems;
@@ -678,6 +712,10 @@ exports.customer_kiosk_get_waiting_data = [
         message: "Error getting outlet, account info or queue item info.",
       });
     }
+
+    accountInfo.companyName = decrypt(accountInfo.companyName);
+    queueItemInfo.name = decrypt(queueItemInfo.name);
+    queueItemInfo.contactNumber = decrypt(queueItemInfo.contactNumber);
 
     return res.status(200).json({
       message: `Welcome ${queueItemInfo.name}. You have entered the queue.`,
@@ -702,7 +740,7 @@ exports.customer_get_prev_waiting = [
 
     const data = {
       queueId,
-      contactNumber: customerNumber,
+      contactNumber: encrypt(customerNumber), // Encrypt for query
     };
 
     const queueItem = await findQueueItemByContactNumberAndQueueId(data);
@@ -714,6 +752,11 @@ exports.customer_get_prev_waiting = [
           "We can't find the queue item for this contact number and queue id.",
       });
     }
+    // Decrypt in response if needed
+    queueItem.forEach((item) => {
+      item.name = decrypt(item.name);
+      item.contactNumber = decrypt(item.contactNumber);
+    });
     return res.status(200).json({
       message: "Success, Queue item found",
       queueItem,

@@ -17,8 +17,8 @@ datasource db {
 model Account {
   id           String       @id @unique @default(uuid())
   createdAt    DateTime     @default(now())
-  companyName  String?      @unique @db.VarChar(255)
-  companyEmail String       @unique
+  companyName  String?      @unique @db.VarChar(1000) // Increased for encrypted data
+  companyEmail String       @unique @db.VarChar(1000) // Increased for encrypted data
   password     String?
   hasPassword  Boolean      @default(false)
   outlets      Outlet[]
@@ -42,12 +42,12 @@ enum BusinessType {
 
 model Staff {
   id         Int        @id @default(autoincrement())
-  name       String     @db.VarChar(255)
+  name       String     @db.VarChar(1000) // Increased for encrypted data
   role       Role       @default(TIER_3)
   createdAt  DateTime   @default(now())
   account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId  String
-  email      String?    @unique @db.VarChar(255)
+  email      String?    @unique @db.VarChar(1000) // Increased for encrypted data
   pfp        String?    @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
   googleId   String?
   facebookId String?
@@ -88,17 +88,17 @@ enum Provider {
 
 model Outlet {
   id                 Int        @id @unique @default(autoincrement())
-  name               String?    @db.VarChar(255)
+  name               String?    @db.VarChar(1000)
   account            Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId          String
   queues             Queue[]
-  location           String?    @db.VarChar(255)
+  location           String?    @db.VarChar(2000)
   googleMaps         String?    @db.VarChar(255)
   wazeMaps           String?    @db.VarChar(255)
   imgUrl             String?    @db.VarChar(255) //Image stored in cloudinary
   qrCode             String?    @db.VarChar(255) //QR Code image stored in cloudinary
   defaultEstWaitTime Int?
-  phone              String?    @db.VarChar(36)
+  phone              String?    @db.VarChar(1000)
   hours              String?
   auditLogs          AuditLog[]
   showPax            Boolean?   @default(true)
@@ -128,8 +128,8 @@ model Queue {
 //If VIP true, then we create a customer. Else, only create a queue item.
 model Customer {
   id         String      @id @unique @default(uuid())
-  name       String?     @db.VarChar(255)
-  number     String?     @db.VarChar(25)
+  name       String?     @db.VarChar(1000)
+  number     String?     @db.VarChar(1000)
   VIP        Boolean     @default(true)
   queueItems QueueItem[] @relation("CustomerQueueItem")
   account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -148,8 +148,8 @@ model QueueItem {
 
   createdAt     DateTime  @default(now())
   pax           Int
-  name          String?   @db.VarChar(255)
-  contactNumber String?
+  name          String?   @db.VarChar(1000)
+  contactNumber String    @db.VarChar(1000)
   called        Boolean   @default(false)
   calledAt      DateTime?
   seated        Boolean   @default(false) // served, withDoctor, entered

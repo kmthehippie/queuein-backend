@@ -1,5 +1,6 @@
 //These are the functions that we use within io
 const { findAllQueueItemsByQueueId } = require("../db/authQueries");
+const { decrypt } = require("../utils/encryption");
 
 const sendQueueUpdateForHost = async (io, queueIdRoom, notice) => {
   const room = io.sockets.adapter.rooms.get(queueIdRoom);

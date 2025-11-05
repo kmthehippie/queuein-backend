@@ -15,7 +15,7 @@ console.log("Firebase Admin SDK loaded and ready.");
 
 app.use(express.static(path.join(__dirname, "/public")));
 
-const indexRouter = require("./routes/indexRouter").router;
+const { router: indexRouter } = require("./routes/indexRouter");
 
 const corsOptions = {
   origin: (origin, callback) => {

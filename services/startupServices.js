@@ -26,18 +26,18 @@ const startCleanup = async () => {
       where: {
         customer: null,
         contactNumber: {
-          not: null,
+          not: "",
         },
         createdAt: {
           lt: twentyFourHoursAgo,
         },
       },
       data: {
-        contactNumber: null,
+        contactNumber: "",
       },
     });
     console.log(
-      `Successfully updated ${result.count} phone numbers from queueitems to null for non-vip customers`
+      `Successfully updated ${result.count} phone numbers from queue items to null for non-vip customers`
     );
   } catch (error) {
     console.error("Error deleting non-vip phone numbers! ", error);

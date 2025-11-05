@@ -32,14 +32,14 @@ const startCronJobs = () => {
         where: {
           customer: null,
           contactNumber: {
-            not: null,
+            not: "",
           },
           createdAt: {
             lt: twentyFourHoursAgo,
           },
         },
         data: {
-          contactNumber: null,
+          contactNumber: "",
         },
       });
       console.log(

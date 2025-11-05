@@ -60,6 +60,7 @@ exports.createOAuthToken = async (data) => {
 };
 
 exports.getStaffByNameAndAccount = async (data) => {
+  console.log("Getting staff by name and account: ", data);
   const staff = await prisma.staff.findFirst({
     where: {
       name: data.name,

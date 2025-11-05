@@ -11,6 +11,7 @@ const {
   sendKioskUpdate,
   // sendCustomerJoined,
 } = require("./helper/socketHelper");
+const { decrypt } = require("./utils/encryption");
 
 const setupSocket = (server) => {
   const io = new Server(server, {
@@ -77,10 +78,13 @@ const setupSocket = (server) => {
       );
       //validate the host
       const staffValid = await checkStaffValidity(info);
-      console.log("Staff valid from db", staffValid);
+
       if (staffValid) {
+        staffValid.name = decrypt(staffValid.name);
+        staffValid.email = decrypt(staffValid.email);
         console.log("Staff is valid ", staffValid.name, staffValid.role);
         socket.staff = info;
+        console.log("Staff valid from db", staffValid);
       }
     });
 

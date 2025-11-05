@@ -7,6 +7,7 @@ const passport = require("passport");
 const { setAuthCookies } = require("../middleware/setAuthCookies");
 const slugify = require("../config/slugify");
 const axios = require("axios");
+const { encrypt, decrypt } = require("../utils/encryption");
 
 const {
   deleteOAuthToken,
@@ -54,6 +55,11 @@ exports.normal_login = [
   passport.authenticate("local", { session: false }),
   asyncHandler(async (req, res, next) => {
     const accountExist = req.user;
+    // Decrypt sensitive fields if needed (though not sent back in response)
+    if (accountExist.companyName)
+      accountExist.companyName = decrypt(accountExist.companyName);
+    if (accountExist.companyEmail)
+      accountExist.companyEmail = decrypt(accountExist.companyEmail);
     delete accountExist.password;
 
     console.log(
@@ -185,7 +191,13 @@ exports.normal_register_form_post = [
       password: ownerPassword,
     } = ownerInfo;
 
-    const accountExist = await getAccountEmail(companyEmail);
+    // Encrypt sensitive fields
+    const encryptedCompanyName = encrypt(companyName);
+    const encryptedCompanyEmail = encrypt(companyEmail);
+    const encryptedOwnerName = encrypt(ownerName);
+    const encryptedOwnerEmail = encrypt(ownerEmail);
+
+    const accountExist = await getAccountEmail(encryptedCompanyEmail); // Note: Adjust getAccountEmail to query encrypted email
 
     if (accountExist) {
       return res
@@ -208,8 +220,8 @@ exports.normal_register_form_post = [
       }
       const hashedPassword = await passwordUtils.generatePw(accountPassword);
       const newAccount = await createAccount({
-        companyName: companyName,
-        companyEmail: companyEmail,
+        companyName: encryptedCompanyName,
+        companyEmail: encryptedCompanyEmail,
         businessType: businessType,
         password: hashedPassword,
         hasPassword: true,
@@ -222,9 +234,9 @@ exports.normal_register_form_post = [
 
       const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
       const newOwner = await createStaff({
-        name: ownerName,
+        name: encryptedOwnerName,
         role: "TIER_1",
-        email: ownerEmail,
+        email: encryptedOwnerEmail,
         accountId: newAccount.id,
         password: hashedOwnerPassword,
       });
@@ -257,6 +269,7 @@ exports.normal_register_form_post = [
         oid: newOAuthToken.id,
         businessType: newAccount.businessType,
         acctSlug: newAccount.slug,
+        companyName: decrypt(newAccount.companyName),
       });
     } catch (error) {
       console.error("Registration error:", error);
