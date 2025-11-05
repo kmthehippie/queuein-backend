@@ -4,7 +4,7 @@ const refreshTokenExpiry = parseInt(
 const oidExpiry = parseInt(process.env.OID_EXPIRY_FOR_COOKIES);
 const isProduction = process.env.NODE_ENV === "production";
 
-const setAuthCookies = (req, res, next, refreshToken, id) => {
+const setAuthCookies = (req, res, refreshToken, id) => {
   const cookieOptions = {
     httpOnly: true,
     sameSite: "None",
@@ -21,8 +21,7 @@ const setAuthCookies = (req, res, next, refreshToken, id) => {
     ...cookieOptions,
     maxAge: oidExpiry,
   });
-  console.log("Setting auth cookies!", res.cookie.jwt, res.cookie.oid);
-  next();
+  console.log("Setting auth cookies!", refreshToken, id);
 };
 
 module.exports = { setAuthCookies };
