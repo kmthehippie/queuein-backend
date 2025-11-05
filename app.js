@@ -39,7 +39,7 @@ require("./config/passportConfig");
 
 app.set("trust proxy", 1);
 
-app.use("/", indexRouter);
+app.use("/api", indexRouter);
 
 const server = http.createServer(app);
 const io = setupSocket(server);
