@@ -179,6 +179,7 @@ exports.normal_register_form_post = [
     console.log("Register attempt received:", req.body); // Add this
     const { accountInfo, ownerInfo } = req.body;
     const userAgent = req.get("User-Agent");
+
     const {
       companyEmail,
       password: accountPassword,
@@ -273,11 +274,13 @@ exports.normal_register_form_post = [
         companyName: decrypt(newAccount.companyName),
       });
     } catch (error) {
-      console.error("Registration error:", error); // Ensure logged
-      return sendServerError(
-        res,
-        "An unexpected error occurred during registration"
-      );
+      console.error("Registration error:", error);
+      if (!res.headersSent) {
+        return sendServerError(
+          res,
+          "An unexpected error occurred during registration"
+        );
+      }
     }
   }),
 ];
