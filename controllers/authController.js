@@ -216,7 +216,8 @@ exports.normal_register_form_post = [
           isSlugUnique = true;
         } else {
           counter++;
-          slug = slugify(`${companyName}-${counter}`);
+          const newSlug = slug + "-" + counter;
+          slug = newSlug;
         }
       }
       const hashedPassword = await passwordUtils.generatePw(accountPassword);
