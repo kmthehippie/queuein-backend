@@ -12,6 +12,20 @@ const sendQueueUpdateForHost = async (io, queueIdRoom, notice) => {
       const queue = await findAllQueueItemsByQueueId(actualQueueId);
       if (queue && queue.queueItems.length > 0) {
         dataToEmit.queueItems = queue.queueItems;
+        queue.queueItems.forEach((item) => {
+          if (item.name) {
+            item.name = decrypt(item.name);
+          }
+          if (item.contactNumber) {
+            item.contactNumber = decrypt(item.contactNumber);
+          }
+          if (item.customer && item.customer.name) {
+            item.customer.name = decrypt(item.customer.name);
+          }
+          if (item.customer && item.customer.number) {
+            item.customer.number = decrypt(item.customer.number);
+          }
+        });
         if (notice) {
           dataToEmit.notice = notice;
         }
@@ -77,6 +91,28 @@ const getProcessedQueueData = async (
       const actualQueueItem = allQueueItems.find(
         (item) => item.id === queueItemId
       );
+      queue.queueItems.forEach((item) => {
+        if (item.name) {
+          item.name = decrypt(item.name);
+        }
+        if (item.contactNumber) {
+          item.contactNumber = decrypt(item.contactNumber);
+        }
+        if (item.customer && item.customer.name) {
+          item.customer.name = decrypt(item.customer.name);
+        }
+        if (item.customer && item.customer.number) {
+          item.customer.number = decrypt(item.customer.number);
+        }
+      });
+      actualQueueItem.name = decrypt(actualQueueItem.name);
+      actualQueueItem.contactNumber = decrypt(actualQueueItem.contactNumber);
+      if (actualQueueItem.customer) {
+        actualQueueItem.customer.name = decrypt(actualQueueItem.customer.name);
+        actualQueueItem.customer.number = decrypt(
+          actualQueueItem.customer.number
+        );
+      }
       console.log("Actual queue item for this socket: ", actualQueueItem.id);
 
       //If queue item id does not exist or there is no actual queue item
