@@ -419,7 +419,6 @@ exports.customer_quit_queue_post = [
         updateQueueItem.id
       );
       await sendOutletUpdate(io, `outlet_${updateQueueItem.queueId}`, notice);
-      await notifyTopQueuePos(updateQueueItem.queueId);
 
       res.status(201).json({
         message: `${updateQueueItem.name}, you have successfully left your queue. See you again soon!`,
