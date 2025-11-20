@@ -52,7 +52,7 @@ const { generatePw, validatePw } = require("../config/passwordUtils");
 const {
   PrismaClientKnownRequestError,
 } = require("@prisma/client/runtime/library");
-const upload = require("../config/multerConfig");
+const { upload, handleFileUpload } = require("../config/multerConfig");
 const { generateQRCode } = require("../helper/generateQRCode");
 const {
   sendPushNotification,
@@ -128,6 +128,7 @@ exports.all_outlets_get = [
 
 exports.update_outlet_patch = [
   upload.single("outletImage"),
+  handleFileUpload,
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
   body("name")
@@ -176,7 +177,7 @@ exports.update_outlet_patch = [
   asyncHandler(async (req, res, next) => {
     const params = req.params;
 
-    const imgUrl = req.file ? req.file.path : null;
+    const imgUrl = req.uploadedFile ? req.uploadedFile.secure_url : null;
     const defaultEstWaitTime = req.body.defaultEstWaitTime;
     let parsedEstWaitTime = null;
     const dataToUpdate = {
@@ -230,6 +231,7 @@ exports.outlet_delete = [
 
 exports.new_outlet_post = [
   upload.single("outletImage"),
+  handleFileUpload,
   param("accountId")
     .notEmpty()
     .withMessage("Account ID cannot be empty.")
@@ -282,8 +284,8 @@ exports.new_outlet_post = [
     .withMessage("Show Pax must be a boolean value."),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const imgUrl = req.file ? req.file.path : null;
-    console.log("Show pax: ", req.body.showPax);
+    const imgUrl = req.uploadedFile ? req.uploadedFile.secure_url : null;
+
     const data = {
       accountId: req.params.accountId,
       name: encrypt(req.body.name),
@@ -294,6 +296,7 @@ exports.new_outlet_post = [
       imgUrl: imgUrl,
       showPax: req.body.showPax === "true" ? true : false,
     };
+
     const createNewOutlet = await createOutlet(data);
     const findAcctSlug = await findAccountByAccountId(req.params.accountId);
     delete findAcctSlug.password;
@@ -1412,6 +1415,7 @@ const businessType = {
 };
 exports.account_details_patch = [
   upload.single("outletImage"),
+  handleFileUpload,
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
   body("companyName")
     .optional() // This makes the field optional
@@ -1432,8 +1436,8 @@ exports.account_details_patch = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { accountId } = req.params;
-    const logo = req.file ? req.file.path : null;
-    const newSlug = req.body.slug ? req.body.slug : null;
+    const logo = req.uploadedFile ? req.uploadedFile.secure_url : null;
+    const newSlug = req.body.slug ? req.body.slug.toLowerCase() : null;
     const dataToUpdate = {
       accountId: accountId,
       ...req.body,
