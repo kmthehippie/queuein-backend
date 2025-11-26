@@ -61,6 +61,32 @@ const prisma = require("../script");
 const startCleanup = require("../services/startupServices");
 const { createAuditLog } = require("../db/authQueries");
 
+const preservedActionTypes = [
+  // Account lifecycle
+  "ACCOUNT_CREATED",
+  "ACCOUNT_DELETED",
+  "PRIVACY_POLICY_ACCEPTED",
+
+  // Staff lifecycle
+  "STAFF_CREATED",
+  "STAFF_DELETED",
+
+  // Payment history (keep forever)
+  "PAYMENT_SUCCEEDED",
+  "PAYMENT_FAILED",
+  "SUBSCRIPTION_CREATED",
+  "SUBSCRIPTION_UPDATED",
+  "SUBSCRIPTION_CANCELED",
+  "INVOICE_CREATED",
+  "INVOICE_PAID",
+
+  // System audits (compliance)
+  "AUDIT_LOG_CLEANUP",
+  "GDPR_DATA_CLEANUP",
+  "INACTIVE_QUEUE_CLEANUP",
+  "MONTHLY_USAGE_RESET",
+];
+
 const startCronJobs = () => {
   startCleanup();
 
@@ -88,13 +114,7 @@ const startCronJobs = () => {
               },
               // ✅ Don't delete critical audit logs
               actionType: {
-                notIn: [
-                  "ACCOUNT_CREATED",
-                  "SUBSCRIPTION_CHANGED",
-                  "PAYMENT_COMPLETED",
-                  "STAFF_CREATED",
-                  "STAFF_DELETED",
-                ],
+                notIn: preservedActionTypes,
               },
             },
           });

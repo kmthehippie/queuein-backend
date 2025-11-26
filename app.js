@@ -19,7 +19,6 @@ const { router: indexRouter } = require("./routes/indexRouter");
 
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log("The allowed origins: ", allowedOrigins);
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {

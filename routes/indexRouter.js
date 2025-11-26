@@ -4,6 +4,7 @@ const authController = require("../controllers/authController");
 const refreshController = require("../controllers/refreshController");
 const customerController = require("../controllers/customerController");
 const dbController = require("../controllers/dbController");
+const cronTestController = require("../utils/cronjobtester");
 const jwt = require("../config/jwt");
 const rateLimit = require("express-rate-limit");
 
@@ -147,6 +148,17 @@ router.get(
 
 //CUSTOMER INFO PAGES
 router.get("/customerInfo/:accountId", dbController.customer_info_get);
+
+//DEV ONLY - TESTING CRON JOBS
+// if (process.env.NODE_ENV !== "production") {
+//   router.post("/test/audit-cleanup", cronTestController.test_audit_log_cleanup);
+//   router.post("/test/phone-cleanup", cronTestController.test_phone_cleanup);
+//   router.post(
+//     "/test/queue-cleanup",
+//     cronTestController.test_inactive_queue_cleanup
+//   );
+//   router.post("/test/usage-reset", cronTestController.test_usage_reset);
+// }
 
 module.exports = {
   router,
