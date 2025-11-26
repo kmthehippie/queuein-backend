@@ -7,7 +7,7 @@ const passport = require("passport");
 const { setAuthCookies } = require("../middleware/setAuthCookies");
 const slugify = require("../config/slugify");
 const axios = require("axios");
-const { encrypt, decrypt } = require("../utils/encryption");
+const { hash, hashPhone, encrypt, decrypt } = require("../utils/encryption");
 
 const {
   deleteOAuthToken,
@@ -91,10 +91,7 @@ exports.normal_login = [
           });
           setAuthCookies(req, res, refreshToken, existingOAuthToken.id);
         } else {
-          console.log(
-            "New device, create a new token ",
-            accountExist.companyName
-          );
+          console.log("New device, create a new token ", accountExist.id);
           const newOAuthToken = await createOAuthToken({
             provider: "LOCAL",
             accessToken: accessToken,
@@ -176,7 +173,6 @@ exports.normal_register_form_post = [
   handleValidationResult,
 
   asyncHandler(async (req, res, next) => {
-    console.log("Register attempt received:", req.body); // Add this
     const { accountInfo, ownerInfo } = req.body;
     const userAgent = req.get("User-Agent");
 
@@ -186,20 +182,18 @@ exports.normal_register_form_post = [
       companyName,
       businessType,
     } = accountInfo;
-    console.log("Account info in register: ", accountInfo);
     const {
       name: ownerName,
       email: ownerEmail,
       password: ownerPassword,
     } = ownerInfo;
 
-    // Encrypt sensitive fields
-    const encryptedCompanyName = encrypt(companyName);
-    const encryptedCompanyEmail = encrypt(companyEmail);
-    const encryptedOwnerName = encrypt(ownerName);
-    const encryptedOwnerEmail = encrypt(ownerEmail);
+    // Hash email for searching
+    const companyEmailHashed = hash(companyEmail);
 
-    const accountExist = await getAccountEmail(encryptedCompanyEmail);
+    //!CHANGE TO HASHED EMAIL TO ALLOW SEARCHING
+
+    const accountExist = await getAccountEmail(companyEmailHashed);
     if (accountExist) {
       return res
         .status(409)
@@ -222,10 +216,12 @@ exports.normal_register_form_post = [
       }
       const hashedPassword = await passwordUtils.generatePw(accountPassword);
       const newAccount = await createAccount({
-        companyName: encryptedCompanyName,
-        companyEmail: encryptedCompanyEmail,
+        companyName: encrypt(companyName),
+        companyEmail: encrypt(companyEmail),
+        companyEmailHashed: companyEmailHashed,
         businessType: businessType,
         password: hashedPassword,
+        provider: "LOCAL",
         hasPassword: true,
         slug: slug,
       });
@@ -236,9 +232,10 @@ exports.normal_register_form_post = [
 
       const hashedOwnerPassword = await passwordUtils.generatePw(ownerPassword);
       const newOwner = await createStaff({
-        name: encryptedOwnerName,
+        name: encrypt(ownerName),
+        nameHashed: hash(ownerName),
         role: "TIER_1",
-        email: encryptedOwnerEmail,
+        email: encrypt(ownerEmail),
         accountId: newAccount.id,
         password: hashedOwnerPassword,
       });
@@ -246,7 +243,7 @@ exports.normal_register_form_post = [
       if (!newOwner) {
         return sendServerError(res, "Error creating new owner");
       }
-      console.log("A new owner is created ", newOwner);
+      console.log("A new owner is created ", newOwner.role);
 
       const accessToken = jwt.generateAccessToken(newAccount);
       const refreshToken = jwt.generateRefreshToken(newAccount);

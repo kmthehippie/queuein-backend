@@ -141,7 +141,7 @@ router.patch(
   dbController.account_details_patch
 );
 router.get(
-  "/settings/auditlogs/:accountId/:outletId",
+  "/settings/auditlogs/:accountId",
   dbController.audit_logs_outlet_get
 );
 

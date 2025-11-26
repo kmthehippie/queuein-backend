@@ -1,15 +1,19 @@
-const { use } = require("passport");
 const prisma = require("../script");
 
 exports.getAccountEmail = async (email) => {
-  const emailExist = prisma.account.findUnique({
-    where: { companyEmail: email },
+  console.log("Searching for email, encrypted: ", email);
+  const emailExist = await prisma.account.findUnique({
+    where: { companyEmailHashed: email },
   });
+  // const allEmails = await prisma.account.findMany({});
+  // console.log("All accounts in DB: ", allEmails);
+  // const deleteAll = await prisma.account.deleteMany({});
+  // console.log("Deleted all accounts: ", deleteAll);
   return emailExist;
 };
 
 exports.getAccountById = async (id) => {
-  const accountIdExist = prisma.account.findUnique({
+  const accountIdExist = await prisma.account.findUnique({
     where: { id: id },
   });
   return accountIdExist;
@@ -20,12 +24,16 @@ exports.createAccount = async (data) => {
     data: {
       companyName: data.companyName,
       companyEmail: data.companyEmail,
+      companyEmailHashed: data.companyEmailHashed,
+      primaryAuthProvider: data.provider,
       password: data.password,
       hasPassword: data.hasPassword,
       businessType: data.businessType,
       slug: data.slug,
     },
   });
+
+  console.log("Created an account: ", account.id);
   return account;
 };
 
@@ -63,7 +71,7 @@ exports.getStaffByNameAndAccount = async (data) => {
   console.log("Getting staff by name and account: ", data);
   const staff = await prisma.staff.findFirst({
     where: {
-      name: data.name,
+      nameHashed: data.nameHashed,
       accountId: data.accountId,
     },
   });
@@ -381,41 +389,6 @@ exports.countInactiveQueues = async ({ accountId, outletId }) => {
     },
   });
 };
-exports.createACustomer = async (data) => {
-  console.log("Creating customer with data: ", data);
-  const customer = await prisma.customer.create({
-    data: {
-      name: data.name,
-      number: data.number,
-      VIP: data.VIP,
-      accountId: data.accountId,
-    },
-  });
-  console.log("Customer created: ", customer.id);
-  return customer;
-};
-
-exports.createAQueueItemVIP = async (data) => {
-  const queueItem = await prisma.queueItem.create({
-    data: {
-      pax: data.pax,
-      name: data.name,
-      contactNumber: data.contactNumber,
-      position: data.position,
-      inactiveAt: null,
-      fcmToken: null,
-      queue: {
-        connect: {
-          id: data.queueId,
-        },
-      },
-      customer: {
-        connect: { id: data.customerId },
-      },
-    },
-  });
-  return queueItem;
-};
 exports.createAQueueItem = async (data) => {
   const queueItem = await prisma.queueItem.create({
     data: {
@@ -423,15 +396,99 @@ exports.createAQueueItem = async (data) => {
       position: data.position,
       name: data.name,
       contactNumber: data.contactNumber,
-      inactiveAt: null,
-      fcmToken: null,
+      contactNumberHashed: data.contactNumberHashed,
+      pdpaConsent: data.pdpaConsent,
+      pdpaConsentAt: data.pdpaConsentAt,
+
+      // ✅ Use nested relation object, not direct ID
       queue: {
         connect: {
           id: data.queueId,
         },
       },
+
+      // ✅ Fix: Use relation name with connect
+      ...(data.createdByStaffId && {
+        createdByStaff: {
+          connect: {
+            id: data.createdByStaffId,
+          },
+        },
+      }),
+
+      // ✅ Optional: connect customer if VIP
+      ...(data.customerId && {
+        customer: {
+          connect: {
+            id: data.customerId,
+          },
+        },
+      }),
+    },
+    include: {
+      queue: true,
+      customer: true,
+      createdByStaff: {
+        select: {
+          id: true,
+          name: true,
+          role: true,
+        },
+      },
     },
   });
+
+  console.log("✅ Queue item created:", queueItem.id);
+  return queueItem;
+};
+
+exports.createAQueueItemVIP = async (data) => {
+  const queueItem = await prisma.queueItem.create({
+    data: {
+      pax: data.pax,
+      position: data.position,
+      name: data.name,
+      contactNumber: data.contactNumber,
+      contactNumberHashed: data.contactNumberHashed,
+      pdpaConsent: data.pdpaConsent,
+      pdpaConsentAt: data.pdpaConsentAt,
+
+      queue: {
+        connect: {
+          id: data.queueId,
+        },
+      },
+
+      // ✅ Connect VIP customer
+      customer: {
+        connect: {
+          id: data.customerId,
+        },
+      },
+
+      // ✅ Fix: Use relation name
+      ...(data.createdByStaffId && {
+        createdByStaff: {
+          connect: {
+            id: data.createdByStaffId,
+          },
+        },
+      }),
+    },
+    include: {
+      queue: true,
+      customer: true,
+      createdByStaff: {
+        select: {
+          id: true,
+          name: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  console.log("✅ VIP queue item created:", queueItem.id);
   return queueItem;
 };
 
@@ -697,9 +754,26 @@ exports.updateCallQueueItem = async ({
       id: queueItemId,
       version: prevVersion,
     },
-    data: dataToUpdate,
+    data: { ...dataToUpdate, version: { increment: 1 } },
+    select: {
+      id: true,
+      queueId: true,
+      name: true,
+      contactNumber: true,
+      called: true,
+      calledAt: true,
+      seated: true,
+      quit: true,
+      noShow: true,
+      active: true,
+      position: true,
+      pax: true,
+      version: true,
+      fcmToken: true,
+    },
   });
   console.log("This is the updated called queue item : ", updateCalled.id);
+  console.log("With FCM token: ", updateCalled.fcmToken);
   return updateCalled;
 };
 
@@ -726,27 +800,42 @@ exports.findAllStaffByAcctId = async (data) => {
 };
 
 exports.createAuditLog = async (data) => {
-  const createLog = await prisma.auditLog.create({
-    data: {
-      staff: {
-        connect: {
-          id: data.staffId,
+  try {
+    const createLog = await prisma.auditLog.create({
+      data: {
+        account: {
+          connect: {
+            id: data.accountId,
+          },
         },
-      },
-      account: {
-        connect: {
-          id: data.accountId,
-        },
-      },
-      outlet: data.outletId
-        ? { connect: { id: parseInt(data.outletId) } }
-        : undefined,
+        staff: data.staffId
+          ? {
+              connect: {
+                id: data.staffId,
+              },
+            }
+          : undefined,
+        outlet: data.outletId ? { connect: { id: data.outletId } } : undefined,
+        actionType: data.actionType,
 
-      actionType: data.actionType,
-    },
-  });
+        entityType: data.entityType || null,
+        entityId: data.entityId || null,
+        actionDetails: data.actionDetails || null,
+        ipAddress: data.ipAddress || null,
+        userAgent: data.userAgent || null,
+      },
+    });
 
-  return createLog;
+    console.log(
+      `✅ Audit log created: ${createLog.actionType} by staff ${
+        data.staffId || "system"
+      }`
+    );
+    return createLog;
+  } catch (error) {
+    console.error("❌ Failed to create audit log:", error);
+    return null;
+  }
 };
 
 exports.deleteStaff = async (data) => {
@@ -826,7 +915,7 @@ exports.findQueueItemByContactNumberAndQueueId = async (data) => {
   const queueItem = await prisma.queueItem.findMany({
     where: {
       queueId: data.queueId,
-      contactNumber: data.contactNumber,
+      contactNumberHashed: data.contactNumberHashed,
     },
   });
 
@@ -874,6 +963,29 @@ exports.findAuditLogsByOutletId = async (data) => {
     },
   });
 
+  return auditLog;
+};
+
+exports.findAuditLogsByAccountId = async (accountId) => {
+  const auditLog = await prisma.auditLog.findMany({
+    where: {
+      accountId: accountId,
+      outletId: null,
+    },
+    include: {
+      staff: {
+        select: {
+          name: true,
+          id: true,
+          role: true,
+        },
+      },
+    },
+    orderBy: {
+      timestamp: "desc",
+    },
+  });
+  console.log("Audit logs found: ", auditLog.length);
   return auditLog;
 };
 exports.updateMaxQueuers = async ({ queueId, maxQueueItems }) => {

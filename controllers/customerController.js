@@ -27,7 +27,7 @@ const {
   sendOutletUpdate,
 } = require("../helper/socketHelper");
 const { generateQueueItemToken } = require("../config/jwt");
-const { encrypt, decrypt } = require("../utils/encryption");
+const { encrypt, decrypt, hashPhone } = require("../utils/encryption");
 
 exports.check_local_storage = [
   body("queueItemId")
@@ -86,7 +86,7 @@ exports.landing_page = [
       logo: account.logo,
       slug: account.slug,
     };
-    console.log("Account info: ", accountInfo);
+    console.log("Account info: ", accountInfo.id);
 
     const outlets = await findOutletsByAcctIdLandingPage(accountInfo.id);
 
@@ -111,12 +111,12 @@ exports.landing_page = [
 //! REPEATED CALL TO THIS 3X
 exports.outlet_landing_page = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").isInt().withMessage("Outlet id must be an int"),
+  param("outletId").isString().withMessage("Outlet must be a string"),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const params = req.params;
     const acctSlug = params.acctSlug;
-    const outletId = parseInt(params.outletId);
+    const outletId = params.outletId;
 
     const account = await findAccountBySlug(acctSlug);
     if (!account) {
@@ -206,7 +206,7 @@ exports.customer_form_get = [
           "Queue Does Not Exist. Please ask Host for an updated QR code for the new queue.",
       });
     }
-    console.log(accountInfo, !!queue);
+    console.log(accountInfo.id, !!queue);
 
     res.status(200).json({
       accountInfo,
@@ -217,17 +217,18 @@ exports.customer_form_get = [
 
 exports.customer_form_post = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").isInt().withMessage("Outlet id must be an int"),
+  param("outletId").isString().withMessage("Outlet must be a string"),
   param("queueId").notEmpty().withMessage("Queue must have an id"),
   //validate body data
   body("customerName", "Name must be a string").trim().isString().escape(),
   body("customerNumber", "Number must be valid").trim().isString().escape(),
   body("VIP", "VIP must be boolean").isBoolean(),
+  body("pdpaConsent", "PDPA Consent must be boolean").isBoolean(),
   body("pax", "Pax must be an integer").trim().optional().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { acctSlug, queueId } = req.params;
-    const { customerName, customerNumber, VIP, pax } = req.body;
+    const { customerName, customerNumber, VIP, pax, pdpaConsent } = req.body;
     const account = await findAccountBySlug(acctSlug);
     if (!account) {
       return res.status(404).json({ message: "Error. Account not found" });
@@ -235,7 +236,7 @@ exports.customer_form_post = [
 
     const dataToFindQueueItem = {
       queueId: queueId,
-      contactNumber: encrypt(customerNumber), // Encrypt for query
+      contactNumberHashed: hashPhone(customerNumber), // Encrypt for query
     };
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
@@ -262,7 +263,10 @@ exports.customer_form_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
+        pdpaConsent: pdpaConsent,
+        pdpaConsentAt: pdpaConsent ? new Date() : null,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -303,10 +307,10 @@ exports.customer_form_post = [
     } else {
       let customerToLink = null;
       const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
-        number: customerNumber,
+        number: encrypt(customerNumber),
         accountId: account.id,
       });
-      console.log("Existing customer found: ", existingCustomer);
+      console.log("Existing customer found: ", existingCustomer.id);
 
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
@@ -335,8 +339,11 @@ exports.customer_form_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
+        pdpaConsent: pdpaConsent,
+        pdpaConsentAt: pdpaConsent ? new Date() : null,
       };
       const newQueueItem = await createAQueueItemVIP(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -543,29 +550,30 @@ exports.customer_waiting_page_get = [
 
 exports.customer_kiosk_form_post = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").isInt().withMessage("Outlet id must be an int"),
+  param("outletId").isString().withMessage("Outlet must be a string"),
   param("queueId").notEmpty().withMessage("Queue must have an id"),
   //validate body data
   body("customerName", "Name must be a string").trim().isString().escape(),
   body("customerNumber", "Number must be valid").trim().isString().escape(),
   body("VIP", "VIP must be boolean").isBoolean(),
+  body("pdpaConsent", "PDPA Consent must be boolean").isBoolean(),
   body("pax", "Pax must be an integer").trim().optional().isInt().escape(),
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { acctSlug, queueId } = req.params;
-    const { customerName, customerNumber, VIP, pax } = req.body;
+    const { customerName, customerNumber, VIP, pax, pdpaConsent } = req.body;
     const account = await findAccountBySlug(acctSlug);
     if (!account) {
       return res.status(404).json({ message: "Error. Account not found" });
     }
     const dataToFindQueueItem = {
       queueId: queueId,
-      contactNumber: encrypt(customerNumber), // Encrypt for query
+      contactNumberHashed: hashPhone(customerNumber),
     };
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
     );
-    console.log("Existing queue item found: ", existingQueueItem);
+    console.log("Existing queue item found: ", existingQueueItem.id);
     const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
       queueId
     );
@@ -587,7 +595,10 @@ exports.customer_kiosk_form_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
+        pdpaConsent: pdpaConsent,
+        pdpaConsentAt: pdpaConsent ? new Date() : null,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -595,7 +606,6 @@ exports.customer_kiosk_form_post = [
           .status(400)
           .json({ message: "Error creating a new queue item" });
       }
-      // Decrypt for response
       newQueueItem.name = decrypt(newQueueItem.name);
       newQueueItem.contactNumber = decrypt(newQueueItem.contactNumber);
       const io = req.app.get("io");
@@ -604,7 +614,7 @@ exports.customer_kiosk_form_post = [
         queueItemId: newQueueItem.id,
       };
 
-      console.log("New Queue Item: ", newQueueItem);
+      console.log("New Queue Item: ", newQueueItem.id);
       await sendQueueUpdateForHost(io, `host_${newQueueItem.queueId}`, notice);
       await sendQueueUpdate(io, `queue_${newQueueItem.queueId}`, notice);
       await sendOutletUpdate(io, `outlet_${newQueueItem.outletId}`, notice);
@@ -616,22 +626,19 @@ exports.customer_kiosk_form_post = [
     } else {
       let customerToLink = null;
 
-      console.log(
-        "Looking for existing customer for VIP",
-        customerNumber,
-        account.id
-      );
+      console.log("Looking for existing customer for VIP", account.id);
       const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
-        number: customerNumber,
+        numberHashed: hashPhone(customerNumber),
         accountId: account.id,
       });
 
-      console.log("Existing customer found: ", existingCustomer);
+      console.log("Existing customer found: ", existingCustomer.id);
 
       if (existingCustomer.length === 0) {
         const dataForNewCustomer = {
           name: encrypt(customerName),
           number: encrypt(customerNumber),
+          numberHashed: hashPhone(customerNumber),
           VIP: VIP,
           accountId: account.id,
         };
@@ -655,8 +662,11 @@ exports.customer_kiosk_form_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
+        pdpaConsent: pdpaConsent,
+        pdpaConsentAt: pdpaConsent ? new Date() : null,
       };
       const newQueueItem = await createAQueueItemVIP(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -670,7 +680,7 @@ exports.customer_kiosk_form_post = [
       customerToLink.name = decrypt(customerToLink.name);
       customerToLink.number = decrypt(customerToLink.number);
 
-      console.log("New VIP Queue Item: ", newQueueItem, customerToLink);
+      console.log("New VIP Queue Item: ", newQueueItem.id, customerToLink.id);
       const io = req.app.get("io");
       const notice = {
         action: "join",
@@ -728,7 +738,7 @@ exports.customer_kiosk_get_waiting_data = [
 
 exports.customer_get_prev_waiting = [
   param("acctSlug").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").isInt().withMessage("Outlet id must be an int"),
+  param("outletId").isString().withMessage("Outlet must be a string"),
   param("queueId").notEmpty().withMessage("Queue must have an id"),
   body("customerName", "Name must be a string").trim().isString().escape(),
   body("customerNumber", "Number must be valid").trim().isString().escape(),
@@ -739,11 +749,11 @@ exports.customer_get_prev_waiting = [
 
     const data = {
       queueId,
-      contactNumber: encrypt(customerNumber), // Encrypt for query
+      contactNumberHashed: hashPhone(customerNumber), // Encrypt for query
     };
 
     const queueItem = await findQueueItemByContactNumberAndQueueId(data);
-    console.log("This is the queue item: ", queueItem);
+    console.log("This is the queue item: ", queueItem.id);
 
     if (queueItem.length < 1) {
       return res.status(404).json({

@@ -3,7 +3,7 @@ const GoogleStrategy = require("passport-google-oauth20");
 const LocalStrategy = require("passport-local").Strategy;
 require("dotenv").config();
 const validatePw = require("./passwordUtils").validatePw;
-const { encrypt, decrypt } = require("../utils/encryption");
+const { hash, hashPhone, encrypt, decrypt } = require("../utils/encryption");
 
 const {
   getAccountEmail,
@@ -25,8 +25,9 @@ passport.use(
     async (req, email, password, done) => {
       try {
         console.log("Entering passport local strategy: ", req.body);
-        const encyrptedEmail = encrypt(email);
-        const account = await getAccountEmail(encyrptedEmail);
+        const hashedEmail = hash(email);
+
+        const account = await getAccountEmail(hashedEmail);
         if (!account) {
           console.log("Authentication failed -- No such email found: ", email);
           return done(null, false, { error: "Invalid Email or Password" });

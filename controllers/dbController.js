@@ -12,6 +12,7 @@ const {
   createOutlet,
   updateOutletByOutletAndAcctId,
   findExistingSlug,
+  findAuditLogsByAccountId,
   findActiveQueuesByOutletAndAccountId,
   updateSecretTokenByQueueItemId,
   findAllQueueItemsByQueueId,
@@ -58,7 +59,7 @@ const {
   sendPushNotification,
   notifyTopQueuePos,
 } = require("../services/notificationService");
-const { encrypt, decrypt } = require("../utils/encryption");
+const { encrypt, decrypt, hash, hashPhone } = require("../utils/encryption");
 
 //* OUTLET RELATED CONTROLLERS *//
 exports.sidenav_outlet_get = [
@@ -92,7 +93,7 @@ exports.all_outlets_get = [
       accountId: accountId,
     };
     const returned = await findOutletsByAcctId(data);
-    const allOutlets = await findOutletsByAcctIdLandingPage(accountId);
+    // const allOutlets = await findOutletsByAcctIdLandingPage(accountId);
 
     // Decrypt outlet fields
     returned.outlets.forEach((outlet) => {
@@ -115,7 +116,7 @@ exports.all_outlets_get = [
       }
     }
 
-    console.log(returned);
+    console.log(returned.accountInfo.id);
     if (returned) {
       return res.status(200).json(returned);
     } else {
@@ -181,7 +182,7 @@ exports.update_outlet_patch = [
     const defaultEstWaitTime = req.body.defaultEstWaitTime;
     let parsedEstWaitTime = null;
     const dataToUpdate = {
-      outletId: parseInt(params.outletId),
+      outletId: params.outletId,
       accountId: params.accountId,
       ...req.body,
     };
@@ -217,7 +218,7 @@ exports.outlet_delete = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const data = {
-      outletId: parseInt(req.params.outletId),
+      outletId: req.params.outletId,
       accountId: req.params.accountId,
     };
     const deletedOutlet = await deleteOutletByIdAndAcctId(data);
@@ -331,7 +332,7 @@ exports.queue_activity_get = [
     console.log("Queue activity get: ", accountId, outletId);
     const outlet = await findOutletByIdAndAccountId({
       accountId: accountId,
-      id: parseInt(outletId),
+      id: outletId,
     });
 
     if (!outlet) {
@@ -393,7 +394,6 @@ exports.inactive_queues_get = [
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
     const { accountId, outletId } = req.params;
-    const parsedOutletId = parseInt(outletId);
 
     const page = parseInt(req.query.page) || 1;
     const limit = 5;
@@ -402,7 +402,7 @@ exports.inactive_queues_get = [
     // Call the service layer, which handles both data retrieval and transformation
     const result = await getInactiveQueueStatsPaginated({
       accountId,
-      outletId: parsedOutletId,
+      outletId: outletId,
       limit,
       skip,
     });
@@ -434,12 +434,12 @@ exports.active_queue_get = [
           item.customer.name = decrypt(item.customer.name);
           item.customer.number = decrypt(item.customer.number);
         }
-        console.log("Decrypted item: ", item);
+        console.log("Decrypted queue item: ", item.id);
       });
     }
     queue.queueItems = decryptQueueItems;
     const outlet = await findOutletByIdAndAccountId({
-      id: parseInt(outletId),
+      id: outletId,
       accountId: accountId,
     });
     // Decrypt outlet fields
@@ -472,7 +472,7 @@ exports.new_queue_post = [
   asyncHandler(async (req, res, next) => {
     const data = {
       accountId: req.params.accountId,
-      outletId: parseInt(req.params.outletId),
+      outletId: req.params.outletId,
       ...req.body,
     };
     const startQueue = await createQueue(data);
@@ -534,7 +534,14 @@ exports.new_customer_post = [
   asyncHandler(async (req, res, next) => {
     const { queueId } = req.params;
     console.log("Queue ID: ", queueId);
-    const { customerName, customerNumber, VIP, pax, accountId } = req.body;
+    const {
+      customerName,
+      customerNumber,
+      VIP,
+      pax,
+      accountId,
+      createdByStaffId,
+    } = req.body;
     const io = req.app.get("io");
 
     const dataToFindQueueItem = {
@@ -546,7 +553,8 @@ exports.new_customer_post = [
     const existingQueueItem = await findQueueItemByContactNumberAndQueueId(
       dataToFindQueueItem
     );
-    console.log("Existing queue item found: ", existingQueueItem);
+    //!USE HASHED CONTACT NUMBER FOR QUEUEITEM NOT ENCRYPT
+    console.log("Existing queue item found: ", existingQueueItem.id);
     const existingQueueItemsLength = await findQueueItemsLengthByQueueId(
       queueId
     );
@@ -587,7 +595,9 @@ exports.new_customer_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
+        createdByStaffId: createdByStaffId,
       };
       const newQueueItem = await createAQueueItem(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -656,8 +666,10 @@ exports.new_customer_post = [
         pax: parseInt(pax),
         name: encrypt(customerName),
         contactNumber: encrypt(customerNumber),
+        contactNumberHashed: hashPhone(customerNumber),
         position: newPosition,
         customerId: customerToLink.id,
+        createdByStaffId: createdByStaffId,
       };
       const newQueueItem = await createAQueueItemVIP(dataForNewQueueItem);
       if (!newQueueItem) {
@@ -814,7 +826,7 @@ exports.seat_queue_item_patch = [
     updatedQueueItem.name = decrypt(updatedQueueItem.name);
     updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
 
-    console.log("Decrypted updated queue item: ", updatedQueueItem);
+    console.log("Decrypted updated queue item: ", updatedQueueItem.id);
 
     res.status(201).json({
       message: "Queue item has been successfully updated",
@@ -884,11 +896,11 @@ exports.call_queue_item_patch = [
       return res.status(500).json({ message: "Failed to update item." });
     }
 
-    console.log("Updated queue item: ", updatedQueueItem);
+    console.log("Updated queue item: ", updatedQueueItem.id);
     updatedQueueItem.name = decrypt(updatedQueueItem.name);
     updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
 
-    console.log("Decrypted updated queue item: ", updatedQueueItem);
+    console.log("Decrypted updated queue item: ", updatedQueueItem.id);
     const io = req.app.get("io");
 
     if (calledStatus) {
@@ -1082,10 +1094,10 @@ exports.no_show_queue_item_patch = [
       });
     }
 
-    console.log("Updated queue item no show status: ", updatedQueueItem);
+    console.log("Updated queue item no show status: ", updatedQueueItem.id);
     updatedQueueItem.name = decrypt(updatedQueueItem.name);
     updatedQueueItem.contactNumber = decrypt(updatedQueueItem.contactNumber);
-    console.log("Decrypted updated queue item: ", updatedQueueItem);
+    console.log("Decrypted updated queue item: ", updatedQueueItem.id);
     res.status(201).json({
       message: "Queue item has been successfully updated",
       updatedQueueItem,
@@ -1108,7 +1120,7 @@ exports.max_queue_items_patch = [
     console.log("We are in max queue items patch: ", queueId, maxQueueItems);
 
     const existingQueue = await findQueueByQueueId(queueId);
-    console.log("This is the existing queue: ", existingQueue);
+    console.log("This is the existing queue: ", existingQueue.id);
 
     if (!existingQueue) {
       return res.status(404).json({
@@ -1132,7 +1144,7 @@ exports.max_queue_items_patch = [
       maxQueueItems: maxQueueItems,
     };
     const io = req.app.get("io");
-    console.log("update queue: ", updateQueue);
+    console.log("update queue: ", updateQueue.id);
 
     await sendQueueUpdateForHost(io, `host_${queueId}`, notice);
     await sendMaxQueueItemsUpdate(io, `kiosk_${queueId}`, maxQueueItems);
@@ -1175,6 +1187,7 @@ exports.new_staff_post = [
     const data = {
       accountId: accountId,
       name: encrypt(body.name),
+      nameHashed: hash(body.name),
       email: encrypt(body.email),
       role: body.role,
       password: pw,
@@ -1203,7 +1216,7 @@ exports.staff_delete = [
     const staffId = req.params.staffId;
     const data = {
       accountId: accountId,
-      staffId: parseInt(staffId),
+      staffId: staffId,
     };
     const del = await deleteStaff(data);
     if (del) {
@@ -1222,7 +1235,7 @@ exports.staff_get = [
     const params = req.params;
     const data = {
       accountId: params.accountId,
-      staffId: parseInt(params.staffId),
+      staffId: params.staffId,
     };
     const staffInfo = await getStaffByIdAndAccountId(data);
     const staffResponse = { ...staffInfo };
@@ -1262,7 +1275,7 @@ exports.staff_patch = [
     //1. FIND EXISTING STAFF
     const dataToFindStaff = {
       accountId: params.accountId,
-      staffId: parseInt(params.staffId),
+      staffId: params.staffId,
     };
     const staff = await getStaffByIdAndAccountId(dataToFindStaff);
     if (staff) {
@@ -1285,7 +1298,7 @@ exports.staff_patch = [
       //3. Perform update
       const dataToUpdateStaff = {
         accountId: params.accountId,
-        staffId: parseInt(params.staffId),
+        staffId: params.staffId,
         updateFields,
       };
       const updateStaff = await updateStaffByIdAndAcctId(dataToUpdateStaff);
@@ -1327,9 +1340,10 @@ exports.check_role_post = [
     const { name, password, actionPurpose, minimumRole, outletId } = req.body;
     const { accountId } = req.params;
     const dataToFindStaff = {
-      name: encrypt(name),
+      nameHashed: hash(name),
       accountId: accountId,
     };
+    //! CHANGE FROM ENCRYPT TO HASHED STAFF NAME
 
     const ROLE_HIERARCHY = {
       TIER_1: 4,
@@ -1360,11 +1374,10 @@ exports.check_role_post = [
         staffId: staff.id,
         actionType: actionPurpose,
         accountId: accountId,
+        outletId: outletId ? outletId : null,
       };
-      if (outletId) {
-        dataForAuditLog.outletId = parseInt(outletId);
-      }
 
+      console.log("Data for audit log: ", dataForAuditLog);
       await createAuditLog(dataForAuditLog);
 
       const dataForFront = {
@@ -1479,7 +1492,7 @@ exports.qrcode_outlet_get = [
     try {
       const outlet = await findOutletByIdAndAccountId({
         accountId: req.params.accountId,
-        id: parseInt(req.params.outletId),
+        id: req.params.outletId,
       });
       outlet.name = decrypt(outlet.name);
       outlet.location = decrypt(outlet.location);
@@ -1510,16 +1523,44 @@ exports.qrcode_outlet_post = [
 ];
 exports.audit_logs_outlet_get = [
   param("accountId").notEmpty().withMessage("Params cannot be empty"),
-  param("outletId").notEmpty().withMessage("Outlet params cannot be empty"),
+  query("outletId").optional().trim().escape(), // ✅ Use query param
   handleValidationResult,
   asyncHandler(async (req, res, next) => {
-    const { accountId, outletId } = req.params;
-    const data = {
-      accountId: accountId,
-      outletId: parseInt(outletId),
-    };
+    const { accountId } = req.params;
+    const { outletId } = req.query; // ✅ Get from query
+
+    console.log(
+      "Fetching audit logs for account id:",
+      accountId,
+      "outletId:",
+      outletId
+    );
+
+    // ✅ Cleaner check
+    if (outletId) {
+      console.log("Finding audits by account id and outlet id", outletId);
+      try {
+        const auditLogs = await findAuditLogsByOutletId({
+          accountId,
+          outletId,
+        });
+        auditLogs.forEach((log) => {
+          if (log.staff) {
+            log.staff.name = decrypt(log.staff.name);
+          }
+        });
+        return res.status(200).json(auditLogs);
+      } catch (error) {
+        console.error("Error finding audit logs:", error);
+        return res.status(404).json({
+          message: "Could not find audit logs for this outlet",
+        });
+      }
+    }
+
+    // Account-level logs
     try {
-      const auditLogs = await findAuditLogsByOutletId(data);
+      const auditLogs = await findAuditLogsByAccountId(accountId);
       auditLogs.forEach((log) => {
         if (log.staff) {
           log.staff.name = decrypt(log.staff.name);
@@ -1527,9 +1568,9 @@ exports.audit_logs_outlet_get = [
       });
       return res.status(200).json(auditLogs);
     } catch (error) {
-      console.error("Error, no audit logs found: ", error);
+      console.error("Error finding audit logs:", error);
       return res.status(404).json({
-        message: "Could not find audit logs for this outlet and account id",
+        message: "Could not find audit logs for this account",
       });
     }
   }),

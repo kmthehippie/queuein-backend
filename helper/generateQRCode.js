@@ -17,7 +17,7 @@ const generateQRCode = async ({ outletId, accountId, acctSlug }) => {
 
   if (uploadResult) {
     const updateOutlet = await updateQRCodeForOutletId({
-      outletId: parseInt(outletId),
+      outletId: outletId,
       accountId: accountId,
       qrCode: uploadResult.secure_url,
     });

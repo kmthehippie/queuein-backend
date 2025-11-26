@@ -1,206 +1,3 @@
-// // This is your Prisma schema file,
-// // learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// generator client {
-//   provider = "prisma-client-js"
-//   output   = "../generated/prisma"
-// }
-
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-// }
-
-// model Account {
-//   id           String       @id @unique @default(uuid())
-//   createdAt    DateTime     @default(now())
-//   companyName  String?      @unique @db.VarChar(1000) // Increased for encrypted data
-//   companyEmail String       @unique @db.VarChar(1000) // Increased for encrypted data
-//   password     String?
-//   hasPassword  Boolean      @default(false)
-//   outlets      Outlet[]
-//   staffs       Staff[]
-//   logo         String?      @db.VarChar(255)
-//   oAuthTokens  OAuthToken[]
-//   queues       Queue[]
-//   slug         String       @unique @db.VarChar(255)
-//   customers    Customer[]
-//   auditLogs    AuditLog[]
-//   businessType BusinessType @default(BASIC)
-
-//   @@index([slug])
-// }
-
-// enum BusinessType {
-//   RESTAURANT
-//   CLINIC
-//   BASIC
-// }
-
-// model Staff {
-//   id         Int        @id @default(autoincrement())
-//   name       String     @db.VarChar(1000) // Increased for encrypted data
-//   role       Role       @default(TIER_3)
-//   createdAt  DateTime   @default(now())
-//   account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   accountId  String
-//   email      String?    @unique @db.VarChar(1000) // Increased for encrypted data
-//   pfp        String?    @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
-//   googleId   String?
-//   facebookId String?
-//   password   String?
-//   auditLogs  AuditLog[]
-
-//   @@index([accountId])
-//   @@index([name])
-// }
-
-// enum Role {
-//   TIER_1 // Equivalent to OWNER
-//   TIER_2 // Equivalent to MANAGER, ASSISTANT_MANAGER
-//   TIER_3 // Equivalent to HOST
-//   TIER_4 // Equivalent to everyone else (view-only)
-// }
-
-// model OAuthToken {
-//   id           String    @id @default(uuid())
-//   provider     Provider // "google" or "github"
-//   accessToken  String
-//   refreshToken String?
-//   accountId    String
-//   account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   userAgent    String    @default("UNKNOWN") //This is what device: User-Agent: Mozilla/5.0 (<system-information>) <platform> (<platform-details>) <extensions>
-//   deviceName   String?
-//   lastLoggedIn DateTime?
-
-//   @@unique([id, accountId]) // Prevent multiple tokens per provider per user
-// }
-
-// enum Provider {
-//   LOCAL
-//   GOOGLE
-//   GITHUB
-//   FACEBOOK
-// }
-
-// model Outlet {
-//   id                 Int        @id @unique @default(autoincrement())
-//   name               String?    @db.VarChar(1000)
-//   account            Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   accountId          String
-//   queues             Queue[]
-//   location           String?    @db.VarChar(2000)
-//   googleMaps         String?    @db.VarChar(255)
-//   wazeMaps           String?    @db.VarChar(255)
-//   imgUrl             String?    @db.VarChar(255) //Image stored in cloudinary
-//   qrCode             String?    @db.VarChar(255) //QR Code image stored in cloudinary
-//   defaultEstWaitTime Int?
-//   phone              String?    @db.VarChar(1000)
-//   hours              String?
-//   auditLogs          AuditLog[]
-//   showPax            Boolean?   @default(true)
-
-//   @@index([accountId])
-// }
-
-// model Queue {
-//   id            String      @id @unique @default(uuid())
-//   outlet        Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
-//   outletId      Int
-//   queueItems    QueueItem[]
-//   startTime     DateTime    @default(now())
-//   endTime       DateTime?
-//   active        Boolean     @default(true)
-//   name          String?
-//   account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   accountId     String
-//   maxQueueItems Int         @default(999)
-
-//   //We need to show active items and non active items. 
-//   //If Queueitem is inactive, then the data moves to a different array.
-//   @@index([outletId])
-//   @@index([accountId])
-// }
-
-// //If VIP true, then we create a customer. Else, only create a queue item.
-// model Customer {
-//   id         String      @id @unique @default(uuid())
-//   name       String?     @db.VarChar(1000)
-//   number     String?     @db.VarChar(1000)
-//   VIP        Boolean     @default(true)
-//   queueItems QueueItem[] @relation("CustomerQueueItem")
-//   account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   accountId  String
-//   createdAt  DateTime    @default(now())
-
-//   @@unique([number, accountId])
-// }
-
-// model QueueItem {
-//   id         String    @id @unique @default(uuid())
-//   queue      Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
-//   queueId    String
-//   customerId String?
-//   customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
-
-//   createdAt     DateTime  @default(now())
-//   pax           Int
-//   name          String?   @db.VarChar(1000)
-//   contactNumber String    @db.VarChar(1000)
-//   called        Boolean   @default(false)
-//   calledAt      DateTime?
-//   seated        Boolean   @default(false) // served, withDoctor, entered
-//   seatedAt      DateTime?
-//   quit          Boolean   @default(false)
-//   quitAt        DateTime?
-//   noShow        Boolean   @default(false)
-//   noShowAt      DateTime?
-//   active        Boolean   @default(true)
-//   position      Int
-//   inactiveAt    DateTime?
-//   version       Int       @default(0)
-//   fcmToken      String?   @db.VarChar(255)
-//   secretToken   String?   @unique @default(uuid()) @db.VarChar(255)
-
-//   //! @@check([seated != quit], name: "seated_quit_check")
-//   // Ensure seated and quit cannot both be true
-//   //If called is true, but seated is not. Start a wait timer. 
-//   //Once it hits 30 minutes, prompt the host if this user has been seated or to kick the user out of the queue.
-//   //If kick user out of queue quit becomes true. If user selects to leave queue, quit is also true.
-//   //If quit is true, seated cannot be true. If seated is true, quit cannot be true.
-//   //If quit or seated is true, active becomes false.
-//   //When seated is true, queue item becomes dormant (gray out) and leaves the actual queue.
-
-//   @@index([queueId]) // For efficient querying of queue items within a queue
-//   @@index([position])
-// }
-
-// model AuditLog {
-//   id         String   @id @default(uuid())
-//   staffId    Int
-//   staff      Staff    @relation(fields: [staffId], references: [id])
-//   actionType String
-//   timestamp  DateTime @default(now())
-//   account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-//   accountId  String
-//   outletId   Int?
-//   outlet     Outlet?  @relation(fields: [outletId], references: [id])
-
-//   @@index([staffId])
-//   @@index([accountId])
-//   @@index([outletId])
-//   @@index([actionType])
-// }
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -212,12 +9,21 @@ datasource db {
 }
 
 model Account {
-  id           String       @id @unique @default(uuid())
-  createdAt    DateTime     @default(now())
-  companyName  String?      @unique @db.VarChar(1000) // Increased for encrypted data
-  companyEmail String       @unique @db.VarChar(1000) // Increased for encrypted data
-  password     String?
-  hasPassword  Boolean      @default(false)
+  id                 String   @id @default(uuid())
+  createdAt          DateTime @default(now())
+  companyName        String?  @unique @db.VarChar(1000)
+  companyEmail       String   @unique @db.VarChar(1000)
+  companyEmailHashed String   @unique @db.VarChar(255)
+
+  // ==================== AUTHENTICATION ====================
+  // Currently implemented: LOCAL (email/password)
+  // Future: Google OAuth, Facebook OAuth
+  password            String?
+  hasPassword         Boolean  @default(false)
+  primaryAuthProvider Provider @default(LOCAL)
+  googleId            String?  @unique
+  facebookId          String?  @unique
+
   outlets      Outlet[]
   staffs       Staff[]
   logo         String?      @db.VarChar(255)
@@ -228,7 +34,50 @@ model Account {
   auditLogs    AuditLog[]
   businessType BusinessType @default(BASIC)
 
+  // ==================== PDPA COMPLIANCE ====================
+  // Status: IMPLEMENTING 22/11/2026
+  privacyPolicyAccepted   Boolean   @default(false)
+  privacyPolicyAcceptedAt DateTime?
+  privacyPolicyVersion    String?   @db.VarChar(50)
+
+  // ==================== STRIPE PAYMENTS ====================
+  // Status: NOT YET IMPLEMENTED
+  // Planned for: Phase 2 (Q2 2026)
+  stripeCustomerId      String?            @unique @db.VarChar(255) // Stripe customer ID (cus_xxx)
+  stripeSubscriptionId  String?            @unique @db.VarChar(255) // Current subscription ID (sub_xxx)
+  subscriptionStatus    SubscriptionStatus @default(FREE)
+  subscriptionTier      SubscriptionTier   @default(FREE)
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  trialEndsAt           DateTime? // Free trial end date
+  subscriptions         Subscription[]
+  payments              Payment[]
+  invoices              Invoice[]
+
+  // ==================== USAGE TRACKING ====================
+  // Status: NOT YET IMPLEMENTED
+  // Currently used for: subscription limit checks (coming soon)
+  currentPeriodStart         DateTime  @default(now())
+  currentPeriodEnd           DateTime?
+  queuesCreatedThisMonth     Int       @default(0)
+  queueItemsCreatedThisMonth Int       @default(0)
+  totalOutlets               Int       @default(0)
+  totalStaff                 Int       @default(0)
+
+  // ==================== SMS TRACKING ====================
+  // Status: NOT YET IMPLEMENTED
+  // For SMS123 API integration
+  smsCreditsRemaining Int               @default(0) // Prepaid SMS credits left
+  smsSentThisMonth    Int               @default(0) // Monthly usage counter
+  smsSentTotal        Int               @default(0) // Lifetime SMS sent
+  smsEnabled          Boolean           @default(false) // Feature enabled/disabled
+  smsApiKey           String?           @db.VarChar(500) // Encrypted SMS123 API key
+  smsApiKeyAddedAt    DateTime?
+  smsNotifications    SmsNotification[] // Relation to SMS logs
+
   @@index([slug])
+  @@index([stripeCustomerId])
+  @@index([subscriptionStatus])
 }
 
 enum BusinessType {
@@ -237,43 +86,70 @@ enum BusinessType {
   BASIC
 }
 
-model Staff {
-  id         Int        @id @default(autoincrement())
-  name       String     @db.VarChar(1000) // Increased for encrypted data
-  role       Role       @default(TIER_3)
-  createdAt  DateTime   @default(now())
-  account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId  String
-  email      String?    @unique @db.VarChar(1000) // Increased for encrypted data
-  pfp        String?    @db.VarChar(255) //Profile picture stored in cloudinary. Rmb to limit the size.
-  googleId   String?
-  facebookId String?
-  password   String?
-  auditLogs  AuditLog[]
+enum SubscriptionStatus {
+  FREE // No paid subscription
+  TRIALING // In free trial
+  ACTIVE // Paid and active
+  PAST_DUE // Payment failed, grace period
+  CANCELED // User canceled, still active until period end
+  UNPAID // Payment failed, no grace period
+  INCOMPLETE // Subscription created but payment incomplete
+  PAUSED // Temporarily paused
+}
 
+enum SubscriptionTier {
+  FREE // Free tier with limitations
+  BASIC // Basic paid tier
+  PROFESSIONAL // Professional tier
+  ENTERPRISE // Enterprise tier
+}
+
+// ==================== STAFF MODEL ====================
+model Staff {
+  id                String      @id @default(uuid())
+  name              String      @db.VarChar(1000)
+  nameHashed        String      @db.VarChar(255)
+  role              Role        @default(TIER_3)
+  createdAt         DateTime    @default(now())
+  account           Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId         String
+  email             String?     @unique @db.VarChar(1000)
+  pfp               String?     @db.VarChar(255)
+  googleId          String?
+  facebookId        String?
+  password          String?
+  auditLogs         AuditLog[]
+  createdQueueItems QueueItem[] @relation("QueueItemCreator")
+  pausedByStaff     Queue[]     @relation("QueuePausedByStaff")
+
+  staffNumber Int @default(autoincrement())
+
+  @@unique([accountId, staffNumber])
   @@index([accountId])
   @@index([name])
 }
 
 enum Role {
-  TIER_1 // Equivalent to OWNER
-  TIER_2 // Equivalent to MANAGER, ASSISTANT_MANAGER
-  TIER_3 // Equivalent to HOST
-  TIER_4 // Equivalent to everyone else (view-only)
+  TIER_1 // OWNER
+  TIER_2 // MANAGER, ASSISTANT_MANAGER
+  TIER_3 // HOST
+  TIER_4 // View-only
 }
 
+// ==================== O-AUTH TOKEN MODEL ====================
 model OAuthToken {
   id           String    @id @default(uuid())
-  provider     Provider // "google" or "github"
+  provider     Provider
   accessToken  String
   refreshToken String?
   accountId    String
   account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  userAgent    String    @default("UNKNOWN") //This is what device: User-Agent: Mozilla/5.0 (<system-information>) <platform> (<platform-details>) <extensions>
+  userAgent    String    @default("UNKNOWN")
   deviceName   String?
   lastLoggedIn DateTime?
+  expiresAt    DateTime?
 
-  @@unique([id, accountId]) // Prevent multiple tokens per provider per user
+  @@unique([provider, accountId])
 }
 
 enum Provider {
@@ -283,8 +159,9 @@ enum Provider {
   FACEBOOK
 }
 
+// ==================== OUTLET MODEL ====================
 model Outlet {
-  id                 Int        @id @unique @default(autoincrement())
+  id                 String     @id @default(uuid())
   name               String?    @db.VarChar(1000)
   account            Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId          String
@@ -292,21 +169,25 @@ model Outlet {
   location           String?    @db.VarChar(2000)
   googleMaps         String?    @db.VarChar(255)
   wazeMaps           String?    @db.VarChar(255)
-  imgUrl             String?    @db.VarChar(255) //Image stored in cloudinary
-  qrCode             String?    @db.VarChar(255) //QR Code image stored in cloudinary
+  imgUrl             String?    @db.VarChar(255)
+  qrCode             String?    @db.VarChar(255)
   defaultEstWaitTime Int?
   phone              String?    @db.VarChar(1000)
   hours              String?
   auditLogs          AuditLog[]
   showPax            Boolean?   @default(true)
 
+  outletNumber Int @default(autoincrement())
+
+  @@unique([accountId, outletNumber])
   @@index([accountId])
 }
 
+// ==================== QUEUE MODEL ====================
 model Queue {
-  id            String      @id @unique @default(uuid())
+  id            String      @id @default(uuid())
   outlet        Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
-  outletId      Int
+  outletId      String
   queueItems    QueueItem[]
   startTime     DateTime    @default(now())
   endTime       DateTime?
@@ -316,78 +197,388 @@ model Queue {
   accountId     String
   maxQueueItems Int         @default(999)
 
-  //We need to show active items and non active items. 
-  //If Queueitem is inactive, then the data moves to a different array.
+  // ==================== USAGE TRACKING ====================
+  // Status: NOT YET IMPLEMENTED
+  // For future option to pause queue with custom message to patients/customers
+  isPaused            Boolean   @default(false)
+  pauseReason         String?   @db.VarChar(1000)
+  estimatedResumeTime DateTime?
+  pausedAt            DateTime?
+  actualResumeTime    DateTime?
+  pausedByStaffId     String?
+  pausedByStaff       Staff?    @relation("QueuePausedByStaff", fields: [pausedByStaffId], references: [id])
+
   @@index([outletId])
   @@index([accountId])
 }
 
-//If VIP true, then we create a customer. Else, only create a queue item.
+// ==================== CUSTOMER MODEL ====================
 model Customer {
-  id         String      @id @unique @default(uuid())
-  name       String?     @db.VarChar(1000)
-  number     String?     @db.VarChar(1000)
-  VIP        Boolean     @default(true)
-  queueItems QueueItem[] @relation("CustomerQueueItem")
-  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId  String
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(uuid())
+  name         String?     @db.VarChar(1000)
+  number       String?     @db.VarChar(1000)
+  numberHashed String      @db.VarChar(255)
+  VIP          Boolean     @default(true)
+  queueItems   QueueItem[] @relation("CustomerQueueItem")
+  account      Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId    String
+  createdAt    DateTime    @default(now())
+
+  // PDPA fields
+  pdpaConsent   Boolean   @default(false)
+  pdpaConsentAt DateTime?
+  pdpaConsentIp String?   @db.VarChar(45)
 
   @@unique([number, accountId])
+  @@index([accountId])
 }
 
+// ==================== QUEUE ITEM MODEL ====================
 model QueueItem {
-  id         String    @id @unique @default(uuid())
-  queue      Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
-  queueId    String
-  customerId String?
-  customer   Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+  id                  String    @id @default(uuid())
+  queue               Queue     @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  queueId             String
+  customerId          String?
+  customer            Customer? @relation("CustomerQueueItem", fields: [customerId], references: [id])
+  createdAt           DateTime  @default(now())
+  pax                 Int
+  name                String?   @db.VarChar(1000)
+  contactNumber       String    @db.VarChar(1000)
+  contactNumberHashed String    @db.VarChar(255)
+  called              Boolean   @default(false)
+  calledAt            DateTime?
+  seated              Boolean   @default(false)
+  seatedAt            DateTime?
+  quit                Boolean   @default(false)
+  quitAt              DateTime?
+  noShow              Boolean   @default(false)
+  noShowAt            DateTime?
+  active              Boolean   @default(true)
+  position            Int
+  inactiveAt          DateTime?
+  version             Int       @default(0)
+  fcmToken            String?   @db.VarChar(255)
+  secretToken         String?   @unique @default(uuid()) @db.VarChar(255)
 
-  createdAt     DateTime  @default(now())
-  pax           Int
-  name          String?   @db.VarChar(1000)
-  contactNumber String    @db.VarChar(1000)
-  called        Boolean   @default(false)
-  calledAt      DateTime?
-  seated        Boolean   @default(false) // served, withDoctor, entered
-  seatedAt      DateTime?
-  quit          Boolean   @default(false)
-  quitAt        DateTime?
-  noShow        Boolean   @default(false)
-  noShowAt      DateTime?
-  active        Boolean   @default(true)
-  position      Int
-  inactiveAt    DateTime?
-  version       Int       @default(0)
-  fcmToken      String?   @db.VarChar(255)
-  secretToken   String?   @unique @default(uuid()) @db.VarChar(255)
+  // PDPA fields
+  pdpaConsent      Boolean   @default(false)
+  pdpaConsentAt    DateTime?
+  pdpaConsentIp    String?   @db.VarChar(45)
+  createdByStaffId String?
+  createdByStaff   Staff?    @relation("QueueItemCreator", fields: [createdByStaffId], references: [id])
 
-  //! @@check([seated != quit], name: "seated_quit_check")
-  // Ensure seated and quit cannot both be true
-  //If called is true, but seated is not. Start a wait timer. 
-  //Once it hits 30 minutes, prompt the host if this user has been seated or to kick the user out of the queue.
-  //If kick user out of queue quit becomes true. If user selects to leave queue, quit is also true.
-  //If quit is true, seated cannot be true. If seated is true, quit cannot be true.
-  //If quit or seated is true, active becomes false.
-  //When seated is true, queue item becomes dormant (gray out) and leaves the actual queue.
+  // ==================== SMS PREFERENCES ====================
+  // Status: NOT IMPLEMENTED YET
+  smsNotificationEnabled Boolean           @default(true) // User opted in for SMS
+  smsNotifications       SmsNotification[] // All SMS sent for this queue item
 
-  @@index([queueId]) // For efficient querying of queue items within a queue
+  @@index([queueId])
   @@index([position])
+  @@index([createdByStaffId])
 }
 
+// ==================== AUDIT LOG MODEL ====================
 model AuditLog {
-  id         String   @id @default(uuid())
-  staffId    Int
-  staff      Staff    @relation(fields: [staffId], references: [id])
-  actionType String
-  timestamp  DateTime @default(now())
-  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId  String
-  outletId   Int?
-  outlet     Outlet?  @relation(fields: [outletId], references: [id])
+  id            String     @id @default(uuid())
+  staffId       String?
+  staff         Staff?     @relation(fields: [staffId], references: [id])
+  actionType    ActionType
+  actionDetails String?    @db.Text
+  timestamp     DateTime   @default(now())
+  account       Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId     String
+  outletId      String?
+  outlet        Outlet?    @relation(fields: [outletId], references: [id])
+
+  // Additional tracking
+  ipAddress  String? @db.VarChar(45)
+  userAgent  String? @db.VarChar(500)
+  isCronJob  Boolean @default(false)
+  entityType String? @db.VarChar(50)
+  entityId   String? @db.VarChar(255)
 
   @@index([staffId])
   @@index([accountId])
   @@index([outletId])
   @@index([actionType])
+  @@index([timestamp])
+  @@index([isCronJob])
+  @@index([entityType, entityId])
+}
+
+enum ActionType {
+  // Account actions
+  ACCOUNT_CREATED
+  ACCOUNT_UPDATED
+  ACCOUNT_DELETED
+  PRIVACY_POLICY_ACCEPTED
+
+  // Staff actions
+  STAFF_CREATED
+  STAFF_UPDATED
+  STAFF_DELETED
+  STAFF_VERIFIED
+  STAFF_QUEUE_ACCESS
+
+  // Queue actions
+  QUEUE_CREATED
+  QUEUE_CLOSED
+  QUEUE_PAUSED
+  QUEUE_RESUMED
+  QUEUE_ITEM_CREATED
+  QUEUE_ITEM_DELETED
+
+  // Customer actions
+  CUSTOMER_CREATED
+  CUSTOMER_UPDATED
+  CUSTOMER_DELETED
+  PDPA_CONSENT_GIVEN
+
+  // Outlet actions
+  OUTLET_CREATED
+  OUTLET_UPDATED
+  OUTLET_DELETED
+
+  // Cron/System actions
+  CRON_CLEANUP_OLD_QUEUE_ITEMS
+  CRON_CLOSE_INACTIVE_QUEUES
+  SYSTEM_ERROR
+  AUDIT_LOG_CLEANUP
+  AUDIT_LOG_CLEANUP_FAILED
+  GDPR_DATA_CLEANUP
+  GDPR_DATA_CLEANUP_FAILED
+  INACTIVE_QUEUE_CLEANUP
+  INACTIVE_QUEUE_CLEANUP_FAILED
+  MONTHLY_USAGE_RESET
+
+  // Payment actions
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_UPDATED
+  SUBSCRIPTION_CANCELED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  INVOICE_CREATED
+  INVOICE_PAID
+
+  // SMS actions
+  SMS_SENT
+  SMS_FAILED
+  SMS_CREDITS_PURCHASED
+  SMS_CREDITS_LOW
+  SMS_API_KEY_ADDED
+  SMS_API_KEY_REMOVED
+}
+
+// ==================== PAYMENT MODELS ====================
+// Status: NOT YET IMPLEMENTED
+
+model Subscription {
+  id        String  @id @default(uuid())
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+
+  // Stripe fields
+  stripeSubscriptionId String @unique @db.VarChar(255)
+  stripePriceId        String @db.VarChar(255) // Price ID (price_xxx)
+  stripeProductId      String @db.VarChar(255) // Product ID (prod_xxx)
+
+  // Subscription details
+  tier              SubscriptionTier
+  status            SubscriptionStatus
+  startDate         DateTime
+  endDate           DateTime?
+  canceledAt        DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+
+  // Billing
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  billingCycle       BillingCycle @default(MONTHLY)
+  amount             Int // Amount in cents
+  currency           String       @default("sgd") @db.VarChar(3)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[]
+  invoices Invoice[]
+
+  @@index([accountId])
+  @@index([stripeSubscriptionId])
+  @@index([status])
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  QUARTERLY
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  account        Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId      String
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId String?
+
+  // Stripe fields
+  stripePaymentIntentId String  @unique @db.VarChar(255)
+  stripeChargeId        String? @db.VarChar(255)
+  stripeInvoiceId       String? @db.VarChar(255)
+
+  // Payment details
+  amount        Int // Amount in cents
+  currency      String        @default("sgd") @db.VarChar(3)
+  status        PaymentStatus
+  paymentMethod String?       @db.VarChar(100) // "card", "bank_transfer", etc.
+
+  // Card details (last 4 digits only for display)
+  cardLast4 String? @db.VarChar(4)
+  cardBrand String? @db.VarChar(50)
+
+  // Metadata
+  description  String?   @db.Text
+  createdAt    DateTime  @default(now())
+  paidAt       DateTime?
+  failedAt     DateTime?
+  refundedAt   DateTime?
+  refundAmount Int? // Amount refunded in cents
+
+  // Audit
+  ipAddress String? @db.VarChar(45)
+
+  @@index([accountId])
+  @@index([subscriptionId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum PaymentStatus {
+  PENDING // Payment initiated
+  PROCESSING // Being processed
+  SUCCEEDED // Successfully paid
+  FAILED // Payment failed
+  CANCELED // Canceled before completion
+  REFUNDED // Fully refunded
+  PARTIALLY_REFUNDED // Partially refunded
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  account        Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId      String
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId String?
+
+  // Stripe fields
+  stripeInvoiceId        String  @unique @db.VarChar(255)
+  stripeInvoiceNumber    String? @db.VarChar(100)
+  stripeInvoicePdf       String? @db.VarChar(500) // URL to PDF
+  stripeHostedInvoiceUrl String? @db.VarChar(500) // URL to view invoice
+
+  // Invoice details
+  amount     Int // Total amount in cents
+  amountDue  Int // Amount still owed
+  amountPaid Int // Amount paid
+  currency   String        @default("sgd") @db.VarChar(3)
+  status     InvoiceStatus
+
+  // Dates
+  createdAt DateTime  @default(now())
+  dueDate   DateTime?
+  paidAt    DateTime?
+  voidedAt  DateTime?
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Metadata
+  description String? @db.Text
+
+  @@index([accountId])
+  @@index([subscriptionId])
+  @@index([stripeInvoiceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum InvoiceStatus {
+  DRAFT // Not finalized
+  OPEN // Awaiting payment
+  PAID // Fully paid
+  VOID // Voided/canceled
+  UNCOLLECTIBLE // Cannot collect payment
+}
+
+// ==================== SMS NOTIFICATION MODEL ====================
+// Status: NOT YET IMPLEMENTED
+model SmsNotification {
+  id          String     @id @default(uuid())
+  account     Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId   String
+  queueItem   QueueItem? @relation(fields: [queueItemId], references: [id])
+  queueItemId String?
+
+  // Recipient details
+  phoneNumber String @db.VarChar(20) // Encrypted
+  countryCode String @default("+65") @db.VarChar(5)
+
+  // Message details
+  messageType SmsMessageType
+  messageBody String         @db.Text // The actual SMS content
+
+  // SMS Provider details (SMS123)
+  providerId       String?   @db.VarChar(255) // SMS123 message ID
+  providerStatus   SmsStatus @default(PENDING)
+  providerResponse String?   @db.Text // Full API response (for debugging)
+
+  // Costs and credits
+  creditsCost Int @default(1) // How many credits this SMS cost
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime? // When SMS was sent
+  deliveredAt DateTime? // When SMS was delivered (if provider supports)
+  failedAt    DateTime? // When SMS failed
+
+  // Error tracking
+  errorCode    String? @db.VarChar(50)
+  errorMessage String? @db.VarChar(500)
+  retryCount   Int     @default(0)
+  maxRetries   Int     @default(3)
+
+  // Metadata
+  ipAddress String? @db.VarChar(45)
+  userAgent String? @db.VarChar(500)
+
+  @@index([accountId])
+  @@index([queueItemId])
+  @@index([providerStatus])
+  @@index([messageType])
+  @@index([createdAt])
+  @@index([phoneNumber]) // For finding SMS by phone number
+}
+
+enum SmsMessageType {
+  QUEUE_JOINED // "You've joined the queue. Position: #5"
+  QUEUE_POSITION_UPDATE // "Your position: #3. Estimated wait: 15 mins"
+  QUEUE_READY // "Your table is ready! Please proceed to the host."
+  QUEUE_CALLED // "You're next! Please get ready."
+  QUEUE_CANCELLED // "Your queue has been cancelled."
+  QUEUE_NO_SHOW // "You were marked as no-show."
+  CUSTOM_MESSAGE // Custom message from staff
+  TEST_MESSAGE // Test SMS
+}
+
+enum SmsStatus {
+  PENDING // Queued, not sent yet
+  SENT // Successfully sent to SMS provider
+  DELIVERED // SMS delivered to recipient
+  FAILED // Failed to send
+  REJECTED // Rejected by SMS provider (invalid number, etc.)
+  EXPIRED // Message expired (couldn't deliver in time)
+  UNDELIVERED // Provider confirmed non-delivery
 }
