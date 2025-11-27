@@ -389,6 +389,24 @@ exports.countInactiveQueues = async ({ accountId, outletId }) => {
     },
   });
 };
+
+exports.createACustomer = async (data) => {
+  const customer = await prisma.customer.create({
+    data: {
+      name: data.name,
+      number: data.number,
+      numberHashed: data.numberHashed,
+      accountId: data.accountId,
+      pdpaConsent: data.pdpaConsent,
+      pdpaConsentAt: data.pdpaConsentAt,
+      VIP: data.VIP,
+    },
+  });
+
+  console.log("Created a customer: ", customer.id);
+  return customer;
+};
+
 exports.createAQueueItem = async (data) => {
   const queueItem = await prisma.queueItem.create({
     data: {

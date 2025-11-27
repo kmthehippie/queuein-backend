@@ -316,6 +316,9 @@ exports.customer_form_post = [
         const dataForNewCustomer = {
           name: encrypt(customerName),
           number: encrypt(customerNumber),
+          numberHashed: hashPhone(customerNumber),
+          pdpaConsent: pdpaConsent,
+          pdpaConsentAt: pdpaConsent ? new Date() : null,
           VIP: VIP,
           accountId: account.id,
         };
