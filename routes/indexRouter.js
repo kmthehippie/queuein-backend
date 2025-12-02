@@ -164,6 +164,14 @@ router.get("/customerInfo/:accountId", dbController.customer_info_get);
 //   );
 //   router.post("/test/usage-reset", cronTestController.test_usage_reset);
 // }
+router.get(
+  "/vip-customers/:accountId",
+  (req, res, next) => {
+    console.log("VIP customers route accessed");
+    next();
+  },
+  dbController.vip_customers_get
+);
 
 module.exports = {
   router,

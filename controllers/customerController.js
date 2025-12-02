@@ -130,6 +130,7 @@ exports.outlet_landing_page = [
       logo: account.logo,
       slug: account.slug,
       businessType: account.businessType,
+      allOutlets: account.allOutlets,
     };
 
     const outletById = {
@@ -307,7 +308,7 @@ exports.customer_form_post = [
     } else {
       let customerToLink = null;
       const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
-        number: encrypt(customerNumber),
+        numberHashed: hashPhone(customerNumber),
         accountId: account.id,
       });
       console.log("Existing customer found: ", existingCustomer.id);

@@ -45,6 +45,7 @@ const {
   findQueueByQueueId,
   updateMaxQueuers,
   findOutletsByAcctIdLandingPage,
+  findAllVIPCustomersByAccountId,
   findAllCustomersByAccountId,
 } = require("../db/authQueries");
 const { getInactiveQueueStatsPaginated } = require("../services/queueServices");
@@ -633,7 +634,7 @@ exports.new_customer_post = [
     } else {
       let customerToLink = null;
       const existingCustomer = await findDuplicateCustomerByNumberAndAcctId({
-        number: customerNumber,
+        number: hashPhone(customerNumber),
         accountId: accountId,
       });
 
@@ -642,6 +643,7 @@ exports.new_customer_post = [
         const dataForNewCustomer = {
           name: encrypt(customerName),
           number: encrypt(customerNumber),
+          numberHashed: hashPhone(customerNumber),
           VIP: VIP,
           accountId: accountId,
         };
@@ -1616,6 +1618,43 @@ exports.customer_info_get = [
       return res
         .status(404)
         .json({ message: "Could not find customers for this account" });
+    }
+  }),
+];
+
+//* TESTING ROUTES *//
+exports.vip_customers_get = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  asyncHandler(async (req, res, next) => {
+    const { accountId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    try {
+      console.log("trying to find all vip customers by acct id:", accountId);
+      const result = await findAllVIPCustomersByAccountId(
+        accountId,
+        page,
+        limit
+      );
+
+      // Decrypt for response
+      result.customers.forEach((customer) => {
+        customer.name = decrypt(customer.name);
+        customer.number = decrypt(customer.number);
+      });
+
+      return res.status(200).json({
+        vipCustomers: result.customers,
+        currentPage: page,
+        totalPages: Math.ceil(result.pagination.totalPages),
+        totalVIPs: result.pagination.totalCustomers,
+      });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(404)
+        .json({ message: "Could not find VIP customers for this account" });
     }
   }),
 ];

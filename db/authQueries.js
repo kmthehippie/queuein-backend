@@ -534,6 +534,14 @@ exports.findExistingSlug = async (slug) => {
 exports.findAccountBySlug = async (slug) => {
   const account = await prisma.account.findUnique({
     where: { slug: slug },
+    include: {
+      outlets: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
   });
   if (account) {
     return {
@@ -542,6 +550,7 @@ exports.findAccountBySlug = async (slug) => {
       logo: account.logo,
       slug: account.slug,
       businessType: account.businessType,
+      allOutlets: account.outlets,
     };
   } else {
     return null;
@@ -552,13 +561,26 @@ exports.findDuplicateCustomerByNumberAndAcctId = async (data) => {
   console.log("Finding duplicate customer for number and acct id: ", data);
   const customer = await prisma.customer.findMany({
     where: {
-      number: data.number,
+      numberHashed: data.numberHashed,
       accountId: data.accountId,
+      VIP: true,
     },
   });
 
   console.log("Duplicate customer found: ", customer);
   return customer;
+};
+
+exports.findQueueItemByContactNumberHashedAndQueueId = async ({
+  queueId,
+  contactNumberHashed,
+}) => {
+  return prisma.queueItem.findMany({
+    where: {
+      queueId,
+      contactNumberHashed,
+    },
+  });
 };
 
 exports.findQueueByQueueId = async (queueId) => {
@@ -1143,4 +1165,42 @@ exports.updateSecretTokenByQueueItemId = async (data) => {
     },
   });
   return updatedQueueItem;
+};
+
+exports.findAllVIPCustomersByAccountId = async (
+  accountId,
+  page = 1,
+  limit = 10
+) => {
+  const skip = (page - 1) * limit;
+
+  const [customers, totalCustomers] = await Promise.all([
+    prisma.customer.findMany({
+      where: {
+        accountId: accountId,
+        VIP: true, // Filter only VIP customers
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: skip,
+      take: limit,
+    }),
+    prisma.customer.count({
+      where: {
+        accountId: accountId,
+        VIP: true,
+      },
+    }),
+  ]);
+
+  return {
+    customers,
+    pagination: {
+      totalCustomers,
+      totalPages: Math.ceil(totalCustomers / limit),
+      currentPage: page,
+      limit,
+    },
+  };
 };
