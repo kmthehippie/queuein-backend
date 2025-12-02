@@ -7,6 +7,7 @@ const dbController = require("../controllers/dbController");
 const cronTestController = require("../utils/cronjobtester");
 const jwt = require("../config/jwt");
 const rateLimit = require("express-rate-limit");
+const { auth } = require("firebase-admin");
 
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -79,6 +80,10 @@ router.post("/logout/:accountId", authController.normal_logout);
 //   res.send("Hey we got past the protected routes!");
 // });
 router.post("/refresh", refreshController.handle_refresh_token);
+router.patch(
+  "/assign-staff/:accountId",
+  authController.assign_staff_oauth_token
+);
 
 //* DASHBOARD ROUTES *//
 //SIDENAV ROUTE

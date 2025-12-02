@@ -1,5 +1,5 @@
 const asyncHandler = require("express-async-handler");
-const { header, body } = require("express-validator");
+const { header, body, param } = require("express-validator");
 const handleValidationResult = require("../middleware/validationResult");
 const passwordUtils = require("../config/passwordUtils");
 const jwt = require("../config/jwt");
@@ -19,6 +19,7 @@ const {
   findOAuthTokenByAccountIdAndUserAgent,
   findOAuthTokenByRefreshToken,
   findExistingSlug,
+  updateStaffIdForOAuthToken,
 } = require("../db/authQueries");
 
 // Helper function for sending server errors
@@ -318,6 +319,49 @@ exports.normal_logout = [
       res.clearCookie("oid", cookieOptions);
       console.log("Successfully logged out!");
       return res.status(200).json({ message: "Logged out successfully." });
+    }
+  }),
+];
+
+exports.assign_staff_oauth_token = [
+  param("accountId").notEmpty().withMessage("Params cannot be empty"),
+  body("staffId").notEmpty().withMessage("StaffId cannot be empty"),
+  handleValidationResult,
+  asyncHandler(async (req, res, next) => {
+    const { staffId } = req.body;
+    const oid = req.cookies.oid;
+    const refreshToken = req.cookies.jwt;
+    const { accountId } = req.params;
+
+    if (!oid || !refreshToken) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: Missing cookies." });
+    }
+
+    try {
+      const oAuthTokenExist = await findOAuthTokenByRefreshToken(refreshToken);
+      if (!oAuthTokenExist || oAuthTokenExist.id !== oid) {
+        return res
+          .status(401)
+          .json({ message: "Unauthorized: Invalid token." });
+      }
+
+      // Update the OAuth token with the new staffId
+      await updateStaffIdForOAuthToken({
+        id: oAuthTokenExist.id,
+        staffId: staffId,
+        accountId: accountId,
+      });
+
+      return res
+        .status(200)
+        .json({ message: "Staff assigned to OAuth token successfully." });
+    } catch (error) {
+      console.error("Error assigning staff to OAuthToken:", error);
+      return res
+        .status(500)
+        .json({ message: "Server error while assigning staff." });
     }
   }),
 ];

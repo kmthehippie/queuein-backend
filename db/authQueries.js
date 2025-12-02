@@ -54,6 +54,7 @@ exports.createStaff = async (data) => {
 };
 
 exports.createOAuthToken = async (data) => {
+  console.log("Creating OAuth token: ", data);
   const OAuthToken = await prisma.oAuthToken.create({
     data: {
       provider: data.provider,
@@ -86,6 +87,19 @@ exports.updateOAuthToken = async (data) => {
     data: {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
+    },
+  });
+  return updatedToken;
+};
+
+exports.updateStaffIdForOAuthToken = async (data) => {
+  const updatedToken = await prisma.oAuthToken.update({
+    where: {
+      id: data.id,
+      accountId: data.accountId,
+    },
+    data: {
+      staffId: data.staffId,
     },
   });
   return updatedToken;
@@ -812,6 +826,9 @@ exports.findAllStaffByAcctId = async (data) => {
       facebookId: true,
       auditLogs: true,
       password: false,
+      auditLogs: false,
+      createdQueueItems: false,
+      pausedByStaff: false,
     },
   });
   return findAllStaff;

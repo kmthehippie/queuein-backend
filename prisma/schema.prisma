@@ -122,7 +122,8 @@ model Staff {
   createdQueueItems QueueItem[] @relation("QueueItemCreator")
   pausedByStaff     Queue[]     @relation("QueuePausedByStaff")
 
-  staffNumber Int @default(autoincrement())
+  staffNumber Int          @default(autoincrement())
+  oauthTokens OAuthToken[]
 
   @@unique([accountId, staffNumber])
   @@index([accountId])
@@ -143,13 +144,18 @@ model OAuthToken {
   accessToken  String
   refreshToken String?
   accountId    String
-  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  staffId      String?
+  staff        Staff?    @relation(fields: [staffId], references: [id])
+  createdAt    DateTime  @default(now())
   userAgent    String    @default("UNKNOWN")
   deviceName   String?
   lastLoggedIn DateTime?
   expiresAt    DateTime?
 
-  @@unique([provider, accountId])
+  @@index([accountId])
+  @@index([staffId])
+  @@index([accessToken])
 }
 
 enum Provider {
